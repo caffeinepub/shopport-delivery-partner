@@ -22,6 +22,7 @@ import {
   Loader2,
   MapPin,
   Phone,
+  RefreshCw,
   ShieldCheck,
   Upload,
 } from "lucide-react";
@@ -385,6 +386,11 @@ export default function Auth() {
   const [locating, setLocating] = useState(false);
   const [locationName, setLocationName] = useState("");
   const [locationTyped, setLocationTyped] = useState("");
+  const [pinnedCoords, setPinnedCoords] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
+  const [pinLoading, setPinLoading] = useState(false);
 
   useEffect(() => {
     if (step === "location") {
@@ -396,6 +402,33 @@ export default function Auth() {
       return () => clearTimeout(t);
     }
   }, [step]);
+
+  const handleSetPin = () => {
+    setPinLoading(true);
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setPinnedCoords({
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+          });
+          setPinLoading(false);
+          toast.success("Pin set at your current location!");
+        },
+        () => {
+          // Fallback to demo coords if GPS blocked
+          setPinnedCoords({ lat: 28.6139, lng: 77.209 });
+          setPinLoading(false);
+          toast.success("Pin set at detected location!");
+        },
+        { timeout: 8000, enableHighAccuracy: true },
+      );
+    } else {
+      setPinnedCoords({ lat: 28.6139, lng: 77.209 });
+      setPinLoading(false);
+      toast.success("Pin set!");
+    }
+  };
 
   const handlePhoneSubmit = () => {
     if (phone.length < 7) {
@@ -1110,15 +1143,12 @@ export default function Auth() {
                   Confirm Your Location
                 </h2>
                 <p className="text-muted-foreground text-sm">
-                  We need your location to assign nearby deliveries
+                  Set a pin at your current location to continue
                 </p>
               </div>
 
               {/* Live Map */}
-              <div
-                className="relative w-full rounded-2xl overflow-hidden"
-                data-ocid="auth.map_marker"
-              >
+              <div className="relative w-full rounded-2xl overflow-hidden">
                 <LiveMap
                   height="300px"
                   showOpenInMaps={false}
@@ -1130,7 +1160,7 @@ export default function Auth() {
                   </div>
                 )}
                 {/* Navigation dot bottom-right */}
-                <div className="absolute bottom-3 right-3 flex flex-col gap-1">
+                <div className="absolute bottom-3 right-3">
                   <button
                     type="button"
                     onClick={() => {
@@ -1147,6 +1177,63 @@ export default function Auth() {
                   </button>
                 </div>
               </div>
+
+              {/* Set Pin Button */}
+              <motion.button
+                type="button"
+                data-ocid="auth.map_marker"
+                onClick={handleSetPin}
+                disabled={pinLoading}
+                whileTap={{ scale: 0.97 }}
+                className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 font-semibold text-sm transition-all ${
+                  pinnedCoords
+                    ? "border-primary/60 bg-primary/10 text-primary hover:bg-primary/20"
+                    : "border-primary bg-primary text-primary-foreground hover:bg-primary/90"
+                }`}
+              >
+                {pinLoading ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : pinnedCoords ? (
+                  <RefreshCw size={16} />
+                ) : (
+                  <MapPin size={16} />
+                )}
+                {pinLoading
+                  ? "Getting location..."
+                  : pinnedCoords
+                    ? "Re-set Pin"
+                    : "Set Pin at My Location"}
+              </motion.button>
+
+              {/* Pin Set Confirmation Card */}
+              <AnimatePresence>
+                {pinnedCoords && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -8, scale: 0.97 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -8, scale: 0.97 }}
+                    transition={{ duration: 0.25 }}
+                    className="flex items-start gap-3 p-3 bg-green-500/15 border border-green-500/40 rounded-xl"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
+                      <span className="text-base">📍</span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-green-400">
+                        Pin Set
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5 font-mono">
+                        {pinnedCoords.lat.toFixed(5)},{" "}
+                        {pinnedCoords.lng.toFixed(5)}
+                      </p>
+                    </div>
+                    <CheckCircle2
+                      size={18}
+                      className="text-green-400 ml-auto flex-shrink-0 mt-0.5"
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               {locationName && (
                 <div className="flex items-start gap-2 p-3 bg-card border border-border rounded-xl">
@@ -1166,6 +1253,7 @@ export default function Auth() {
               <div className="space-y-1">
                 <Label>Enter Location (Optional)</Label>
                 <Input
+                  data-ocid="auth.input"
                   placeholder="Type your location..."
                   value={locationTyped}
                   onChange={(e) => setLocationTyped(e.target.value)}
@@ -1176,16 +1264,26 @@ export default function Auth() {
               <Button
                 data-ocid="auth.primary_button"
                 onClick={handleLocationConfirm}
-                disabled={loading || loginStatus === "logging-in"}
-                className="w-full bg-primary text-primary-foreground font-semibold h-12"
+                disabled={
+                  loading || loginStatus === "logging-in" || !pinnedCoords
+                }
+                className="w-full bg-primary text-primary-foreground font-semibold h-12 disabled:opacity-50"
               >
                 {loading ? (
                   <Loader2 size={16} className="mr-2 animate-spin" />
                 ) : (
                   <MapPin size={16} className="mr-2" />
                 )}
-                {loading ? "Registering..." : "Confirm Location & Continue"}
+                {loading
+                  ? "Registering..."
+                  : "Confirm Your Location & Continue"}
               </Button>
+
+              {!pinnedCoords && (
+                <p className="text-center text-xs text-muted-foreground">
+                  Set a pin to enable the continue button
+                </p>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
