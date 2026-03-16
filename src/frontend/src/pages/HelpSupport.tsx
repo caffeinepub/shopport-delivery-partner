@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useState } from "react";
+import FeedbackModal from "../components/FeedbackModal";
 
 const FAQS = [
   {
@@ -39,6 +40,7 @@ const FAQS = [
 export default function HelpSupport() {
   const router = useRouter();
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [showFeedback, setShowFeedback] = useState(false);
 
   return (
     <div className="min-h-dvh bg-background">
@@ -73,8 +75,8 @@ export default function HelpSupport() {
             data-ocid="help.link"
             className="flex items-center gap-4 px-4 py-4 hover:bg-muted/50 transition-colors"
           >
-            <div className="w-10 h-10 bg-green-500/10 rounded-xl flex items-center justify-center flex-shrink-0">
-              <Phone size={18} className="text-green-400" />
+            <div className="w-10 h-10 bg-orange-500/10 rounded-xl flex items-center justify-center flex-shrink-0">
+              <Phone size={18} className="text-orange-400" />
             </div>
             <div className="flex-1">
               <p className="text-sm font-semibold">Call Support</p>
@@ -173,7 +175,7 @@ export default function HelpSupport() {
         <button
           type="button"
           data-ocid="help.secondary_button"
-          onClick={() => router.navigate({ to: "/profile/feedback" })}
+          onClick={() => setShowFeedback(true)}
           className="w-full flex items-center gap-4 bg-card border border-border rounded-2xl p-4 hover:border-primary/40 transition-colors"
         >
           <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -188,6 +190,12 @@ export default function HelpSupport() {
           <ChevronRight size={16} className="text-muted-foreground" />
         </button>
       </div>
+
+      <FeedbackModal
+        open={showFeedback}
+        onClose={() => setShowFeedback(false)}
+        screenName="Help & Support"
+      />
     </div>
   );
 }

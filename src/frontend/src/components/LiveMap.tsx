@@ -51,9 +51,20 @@ export default function LiveMap({
         { headers: { "Accept-Language": "en" } },
       );
       const data = await res.json();
-      const addr = data.display_name as string;
-      const short = addr.split(",").slice(0, 3).join(", ");
-      updateAddress(short);
+      const addrObj = data.address || {};
+      const parts = [
+        addrObj.house_number,
+        addrObj.road || addrObj.pedestrian,
+        addrObj.neighbourhood || addrObj.suburb,
+        addrObj.city || addrObj.town || addrObj.village,
+        addrObj.state_district,
+        addrObj.state,
+      ].filter(Boolean);
+      const fullAddr =
+        parts.length > 0
+          ? parts.join(", ")
+          : (data.display_name as string).split(",").slice(0, 5).join(", ");
+      updateAddress(fullAddr);
     } catch {
       // ignore
     }
@@ -304,11 +315,6 @@ export default function LiveMap({
             <p className="text-xs text-foreground font-medium truncate">
               📍 {address}
             </p>
-            {coords && (
-              <p className="text-[10px] text-muted-foreground">
-                {coords.lat.toFixed(5)}, {coords.lng.toFixed(5)}
-              </p>
-            )}
           </div>
         )}
       </div>

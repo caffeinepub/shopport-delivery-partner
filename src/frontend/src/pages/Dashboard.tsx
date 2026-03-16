@@ -17,6 +17,7 @@ import {
   CreditCard,
   MapPin,
   MessageSquare,
+  Navigation2,
   Package,
   Pause,
   Star,
@@ -28,6 +29,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { OrderStatus, Variant_cod_online } from "../backend";
 import type { OrderData } from "../backend";
+import FeedbackModal from "../components/FeedbackModal";
 import LiveMap from "../components/LiveMap";
 import {
   useAvailableOrders,
@@ -129,8 +131,8 @@ const BREAK_OPTIONS = [
     label: "Lunch Break",
     minutes: 30,
     icon: UtensilsCrossed,
-    color: "text-orange-400",
-    bg: "bg-orange-500/10",
+    color: "text-green-400",
+    bg: "bg-green-500/10",
   },
   {
     label: "Short Break",
@@ -170,6 +172,7 @@ export default function Dashboard() {
   const { data: apiOrders, isLoading } = useAvailableOrders();
   const { mutateAsync: updateStatus } = useUpdateOrderStatus();
   const [isOnline, setIsOnline] = useState(true);
+  const [showFeedback, setShowFeedback] = useState(false);
   const [accepting, setAccepting] = useState<string | null>(null);
   const [detailOrder, setDetailOrder] = useState<OrderType | null>(null);
   const [rejectedIds, setRejectedIds] = useState<Set<string>>(new Set());
@@ -180,7 +183,16 @@ export default function Dashboard() {
   } | null>(null);
   const [breakRemaining, setBreakRemaining] = useState(0);
   const [liveAddress, setLiveAddress] = useState<string | null>(null);
-  const [locationDenied, setLocationDenied] = useState(false);
+  const [radiusKm, setRadiusKm] = useState(5);
+
+  const RADIUS_OPTIONS = [1, 2, 3, 5, 10];
+  const radiusToWidth: Record<number, string> = {
+    1: "30%",
+    2: "45%",
+    3: "55%",
+    5: "72%",
+    10: "90%",
+  };
   const istTime = useISTTime();
 
   // Break countdown
@@ -284,6 +296,26 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+        {/* Take a Break button in header */}
+        <div className="flex items-center gap-2 mt-3">
+          <button
+            type="button"
+            data-ocid="dashboard.secondary_button"
+            onClick={() => setBreakSheetOpen(true)}
+            className="flex items-center gap-1.5 bg-amber-500/15 border border-amber-500/40 text-amber-400 text-xs font-semibold px-3 py-2 rounded-xl hover:bg-amber-500/25 transition-colors"
+          >
+            <Coffee size={14} />☕ Take a Break
+          </button>
+          <button
+            type="button"
+            data-ocid="dashboard.open_modal_button"
+            onClick={() => setShowFeedback(true)}
+            className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors px-2 py-2"
+          >
+            <MessageSquare size={14} />
+            Feedback
+          </button>
+        </div>
       </header>
 
       {/* Active Break Banner */}
@@ -321,38 +353,101 @@ export default function Dashboard() {
 
       {/* Live Location Map */}
       <div className="px-4 mb-2">
+        {/* KM Radius Selector */}
+        <div className="flex items-center gap-2 mb-3 flex-wrap">
+          <span className="text-xs text-muted-foreground font-medium">
+            Delivery radius:
+          </span>
+          {RADIUS_OPTIONS.map((km) => (
+            <button
+              key={km}
+              type="button"
+              data-ocid="dashboard.toggle"
+              onClick={() => setRadiusKm(km)}
+              className={`text-xs font-bold px-2.5 py-1 rounded-full border transition-colors ${
+                radiusKm === km
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-muted/60 text-muted-foreground border-border hover:border-primary/50"
+              }`}
+            >
+              {km} km
+            </button>
+          ))}
+        </div>
+
         <div className="flex items-center gap-2 mb-2">
           <MapPin size={14} className="text-primary" />
           <p className="text-sm font-bold font-display">My Live Location</p>
           <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+          <span className="ml-auto text-xs font-bold bg-primary/15 text-primary px-2 py-0.5 rounded-full border border-primary/30">
+            {orders.length} orders nearby
+          </span>
         </div>
 
-        {/* Permission denied warning above map */}
-        {locationDenied && (
-          <motion.div
-            initial={{ opacity: 0, y: -6 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-2 bg-amber-500/10 border border-amber-500/40 rounded-xl px-3 py-2.5 flex items-start gap-2"
-            data-ocid="dashboard.error_state"
-          >
-            <span className="text-base leading-none mt-0.5">📍</span>
-            <p className="text-xs text-amber-300 leading-relaxed">
-              <span className="font-semibold">Location Access Required</span> —
-              Tap &lsquo;Allow Location Access&rsquo; on the map below to enable
-              live tracking
-            </p>
-          </motion.div>
-        )}
+        <div className="relative">
+          <LiveMap
+            height="200px"
+            showOpenInMaps={true}
+            hidePermissionOverlay={true}
+            onAddressChange={setLiveAddress}
+          />
+          {/* Dynamic KM radius circle overlay */}
+          <div className="absolute inset-0 pointer-events-none flex items-center justify-center rounded-2xl overflow-hidden">
+            <div
+              style={{
+                width: radiusToWidth[radiusKm],
+                paddingTop: radiusToWidth[radiusKm],
+                position: "relative",
+                borderRadius: "50%",
+                border: "2px solid rgba(34,197,94,0.55)",
+                background: "rgba(34,197,94,0.07)",
+                transition: "width 0.4s ease, padding-top 0.4s ease",
+              }}
+            >
+              <span
+                style={{
+                  position: "absolute",
+                  bottom: "-20px",
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  fontSize: "10px",
+                  color: "rgba(34,197,94,0.9)",
+                  fontWeight: 700,
+                  whiteSpace: "nowrap",
+                  background: "rgba(0,0,0,0.5)",
+                  padding: "1px 6px",
+                  borderRadius: "4px",
+                }}
+              >
+                {radiusKm} KM Radius
+              </span>
+            </div>
+          </div>
+        </div>
 
-        <LiveMap
-          height="200px"
-          showOpenInMaps={true}
-          onAddressChange={setLiveAddress}
-          onPermissionDenied={setLocationDenied}
-        />
+        {/* GPS Icon Button below map */}
+        <div className="flex justify-center -mt-5 mb-1 relative z-10">
+          <button
+            type="button"
+            data-ocid="dashboard.map_marker"
+            onClick={() => {
+              if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                  () => {},
+                  () => {},
+                  { enableHighAccuracy: true },
+                );
+              }
+            }}
+            title="Detect my live location"
+            className="w-12 h-12 rounded-full bg-primary shadow-lg flex items-center justify-center hover:bg-primary/90 active:scale-95 transition-all border-4 border-background"
+          >
+            <Navigation2 size={20} className="text-primary-foreground" />
+          </button>
+        </div>
 
         {/* Location details card below map */}
-        {!locationDenied && (
+        {
           <motion.div
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
@@ -391,7 +486,7 @@ export default function Dashboard() {
               </div>
             )}
           </motion.div>
-        )}
+        }
       </div>
 
       {/* Today's Performance */}
@@ -627,59 +722,12 @@ export default function Dashboard() {
         <button
           type="button"
           data-ocid="dashboard.secondary_button"
-          onClick={() => router.navigate({ to: "/profile/feedback" })}
+          onClick={() => setShowFeedback(true)}
           className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
         >
           <MessageSquare size={12} />
           Give Feedback
         </button>
-      </div>
-
-      {/* Fixed bottom Take a Break bar */}
-      <div className="fixed bottom-20 left-0 right-0 z-40 px-4 pointer-events-none">
-        <div className="pointer-events-auto">
-          {activeBreak ? (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-amber-500/80 backdrop-blur-md border border-amber-400/50 rounded-2xl px-4 py-3 flex items-center justify-between shadow-lg"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-white/20 rounded-xl flex items-center justify-center">
-                  <Coffee size={16} className="text-white" />
-                </div>
-                <div>
-                  <p className="text-white text-xs font-bold">
-                    {activeBreak.label}
-                  </p>
-                  <p className="text-white/80 text-[11px]">
-                    Resumes in {formatBreakTime(breakRemaining)}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                data-ocid="dashboard.secondary_button"
-                onClick={endBreak}
-                className="bg-white/20 hover:bg-white/30 text-white text-xs font-semibold px-3 py-1.5 rounded-xl transition-colors"
-              >
-                End Break
-              </button>
-            </motion.div>
-          ) : (
-            <motion.button
-              type="button"
-              data-ocid="dashboard.open_modal_button"
-              onClick={() => setBreakSheetOpen(true)}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              whileTap={{ scale: 0.98 }}
-              className="w-full bg-primary/80 backdrop-blur-md border border-primary/50 hover:bg-primary/90 text-primary-foreground font-semibold text-sm rounded-2xl px-4 py-3.5 flex items-center justify-center gap-2.5 shadow-lg transition-colors"
-            >
-              <Coffee size={16} />☕ Take a Break
-            </motion.button>
-          )}
-        </div>
       </div>
 
       {/* Break Time Sheet */}
@@ -837,6 +885,12 @@ export default function Dashboard() {
           )}
         </SheetContent>
       </Sheet>
+
+      <FeedbackModal
+        open={showFeedback}
+        onClose={() => setShowFeedback(false)}
+        screenName="Dashboard"
+      />
     </div>
   );
 }

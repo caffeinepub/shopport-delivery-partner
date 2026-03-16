@@ -1,9 +1,10 @@
 import { Button } from "@/components/ui/button";
 import { useRouter } from "@tanstack/react-router";
-import { ArrowLeft, Check, Globe } from "lucide-react";
+import { ArrowLeft, Check, Globe, MessageSquare } from "lucide-react";
 import { motion } from "motion/react";
 import { useState } from "react";
 import { toast } from "sonner";
+import FeedbackModal from "../components/FeedbackModal";
 
 const LANGUAGES = [
   "Hindi",
@@ -33,6 +34,7 @@ const LANGUAGES = [
 export default function LanguageScreen() {
   const router = useRouter();
   const [selected, setSelected] = useState("English");
+  const [showFeedback, setShowFeedback] = useState(false);
 
   const handleSave = () => {
     toast.success(`Language set to ${selected}`);
@@ -86,6 +88,18 @@ export default function LanguageScreen() {
         </div>
       </div>
 
+      {/* Feedback link */}
+      <div className="flex justify-center pb-4">
+        <button
+          type="button"
+          onClick={() => setShowFeedback(true)}
+          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+        >
+          <MessageSquare size={13} />
+          Give Feedback
+        </button>
+      </div>
+
       <div className="fixed bottom-0 left-0 right-0 px-4 pb-8 pt-4 bg-background border-t border-border">
         <Button
           data-ocid="language.save_button"
@@ -95,6 +109,12 @@ export default function LanguageScreen() {
           Save Language
         </Button>
       </div>
+
+      <FeedbackModal
+        open={showFeedback}
+        onClose={() => setShowFeedback(false)}
+        screenName="Language Selection"
+      />
     </div>
   );
 }

@@ -12,26 +12,30 @@ import {
 } from "@/components/ui/select";
 import { useRouter } from "@tanstack/react-router";
 import {
+  ArrowLeft,
   Bike,
   Camera,
   Car,
+  Check,
   CheckCircle2,
   ChevronRight,
   Footprints,
   Globe,
   Loader2,
   MapPin,
+  MessageSquare,
+  Navigation2,
   Phone,
-  RefreshCw,
   ShieldCheck,
   Upload,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import FeedbackModal from "../components/FeedbackModal";
 import LiveMap from "../components/LiveMap";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
-import { useSaveProfile } from "../hooks/useQueries";
+import { useCallerProfile, useSaveProfile } from "../hooks/useQueries";
 
 type Step =
   | "terms"
@@ -42,28 +46,28 @@ type Step =
   | "location";
 
 const LANGUAGES = [
-  { script: "हिन्दी", english: "Hindi" },
-  { script: "বাংলা", english: "Bengali" },
-  { script: "తెలుగు", english: "Telugu" },
-  { script: "मराठी", english: "Marathi" },
-  { script: "தமிழ்", english: "Tamil" },
-  { script: "اردو", english: "Urdu" },
-  { script: "ગુજરાતી", english: "Gujarati" },
-  { script: "ಕನ್ನಡ", english: "Kannada" },
-  { script: "ओड़िया", english: "Odia" },
-  { script: "മലയാളം", english: "Malayalam" },
-  { script: "ਪੰਜਾਬੀ", english: "Punjabi" },
-  { script: "অসমীয়া", english: "Assamese" },
-  { script: "मैथिली", english: "Maithili" },
-  { script: "संस्कृतम्", english: "Sanskrit" },
-  { script: "डोगरी", english: "Dogri" },
-  { script: "नेपाली", english: "Nepali" },
-  { script: "सिन्धी", english: "Sindhi" },
-  { script: "कोंकणी", english: "Konkani" },
-  { script: "বোড়ো", english: "Bodo" },
-  { script: "সাঁওতালি", english: "Santali" },
-  { script: "मणिपुरी", english: "Manipuri" },
-  { script: "कश्मीरी", english: "Kashmiri" },
+  "Hindi",
+  "Bengali",
+  "Telugu",
+  "Marathi",
+  "Tamil",
+  "Urdu",
+  "Gujarati",
+  "Kannada",
+  "Odia",
+  "Malayalam",
+  "Punjabi",
+  "Assamese",
+  "Maithili",
+  "Sanskrit",
+  "Konkani",
+  "Sindhi",
+  "Dogri",
+  "Kashmiri",
+  "Manipuri",
+  "Bodo",
+  "Santali",
+  "Nepali",
 ];
 
 const TC_POINTS = [
@@ -353,8 +357,17 @@ export default function Auth() {
   const router = useRouter();
   const { login, loginStatus } = useInternetIdentity();
   const { mutateAsync: saveProfile } = useSaveProfile();
+  const { data: callerProfile } = useCallerProfile();
   const [step, setStep] = useState<Step>("terms");
-  const [selectedLanguage, setSelectedLanguage] = useState("");
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [selectedLanguage, setSelectedLanguage] = useState("Hindi");
+
+  // Returning user: skip registration and go directly to dashboard
+  useEffect(() => {
+    if (callerProfile && (callerProfile as { name?: string }).name) {
+      router.navigate({ to: "/dashboard" });
+    }
+  }, [callerProfile, router]);
   const [tcAccepted, setTcAccepted] = useState(false);
   const [phone, setPhone] = useState("");
   const [countryCode, setCountryCode] = useState("+91");
@@ -384,49 +397,65 @@ export default function Auth() {
 
   // Location
   const [locating, setLocating] = useState(false);
-  const [locationName, setLocationName] = useState("");
   const [locationTyped, setLocationTyped] = useState("");
-  const [pinnedCoords, setPinnedCoords] = useState<{
-    lat: number;
-    lng: number;
-  } | null>(null);
-  const [pinLoading, setPinLoading] = useState(false);
+  const [gpsLoading, setGpsLoading] = useState(false);
 
   useEffect(() => {
     if (step === "location") {
       setLocating(true);
       const t = setTimeout(() => {
         setLocating(false);
-        setLocationName("New Delhi, India");
       }, 1500);
       return () => clearTimeout(t);
     }
   }, [step]);
 
-  const handleSetPin = () => {
-    setPinLoading(true);
+  const handleGoToPresent = () => {
+    setGpsLoading(true);
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setPinnedCoords({
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
-          });
-          setPinLoading(false);
-          toast.success("Pin set at your current location!");
+        async (pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          setGpsLoading(false);
+          toast.success("Live location found!");
+          try {
+            const res = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18`,
+              { headers: { "Accept-Language": "en" } },
+            );
+            const data = await res.json();
+            const addr = data.address || {};
+            const parts = [
+              addr.house_number,
+              addr.road || addr.pedestrian,
+              addr.neighbourhood || addr.suburb,
+              addr.city || addr.town || addr.village,
+              addr.state_district,
+              addr.state,
+            ].filter(Boolean);
+            const fullAddress =
+              parts.length > 0
+                ? parts.join(", ")
+                : (data.display_name as string)
+                    .split(",")
+                    .slice(0, 5)
+                    .join(", ");
+            setLocationTyped(fullAddress);
+          } catch {
+            setLocationTyped(`${lat.toFixed(4)}, ${lng.toFixed(4)}`);
+          }
         },
         () => {
-          // Fallback to demo coords if GPS blocked
-          setPinnedCoords({ lat: 28.6139, lng: 77.209 });
-          setPinLoading(false);
-          toast.success("Pin set at detected location!");
+          setGpsLoading(false);
+          setLocationTyped("New Delhi, India");
+          toast.success("Location detected!");
         },
         { timeout: 8000, enableHighAccuracy: true },
       );
     } else {
-      setPinnedCoords({ lat: 28.6139, lng: 77.209 });
-      setPinLoading(false);
-      toast.success("Pin set!");
+      setGpsLoading(false);
+      setLocationTyped("New Delhi, India");
     }
   };
 
@@ -469,14 +498,6 @@ export default function Auth() {
       return;
     }
     setStep("language");
-  };
-
-  const handleLanguageSubmit = () => {
-    if (!selectedLanguage) {
-      toast.error("Please select a language");
-      return;
-    }
-    setStep("location");
   };
 
   const handleLocationConfirm = async () => {
@@ -596,6 +617,23 @@ export default function Auth() {
               >
                 Skip
               </button>
+              {/* Feedback */}
+              <div className="flex justify-center pt-1">
+                <button
+                  type="button"
+                  data-ocid="auth.open_modal_button"
+                  onClick={() => setShowFeedbackModal(true)}
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+                >
+                  <MessageSquare size={13} />
+                  Give Feedback
+                </button>
+              </div>
+              <FeedbackModal
+                open={showFeedbackModal}
+                onClose={() => setShowFeedbackModal(false)}
+                screenName="Registration"
+              />
             </motion.div>
           )}
 
@@ -669,6 +707,23 @@ export default function Auth() {
               >
                 <Phone size={16} className="mr-2" /> Send OTP
               </Button>
+              {/* Feedback */}
+              <div className="flex justify-center pt-1">
+                <button
+                  type="button"
+                  data-ocid="auth.open_modal_button"
+                  onClick={() => setShowFeedbackModal(true)}
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+                >
+                  <MessageSquare size={13} />
+                  Give Feedback
+                </button>
+              </div>
+              <FeedbackModal
+                open={showFeedbackModal}
+                onClose={() => setShowFeedbackModal(false)}
+                screenName="Registration"
+              />
             </motion.div>
           )}
 
@@ -717,6 +772,23 @@ export default function Auth() {
               >
                 Change Number
               </Button>
+              {/* Feedback */}
+              <div className="flex justify-center pt-1">
+                <button
+                  type="button"
+                  data-ocid="auth.open_modal_button"
+                  onClick={() => setShowFeedbackModal(true)}
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+                >
+                  <MessageSquare size={13} />
+                  Give Feedback
+                </button>
+              </div>
+              <FeedbackModal
+                open={showFeedbackModal}
+                onClose={() => setShowFeedbackModal(false)}
+                screenName="Registration"
+              />
             </motion.div>
           )}
 
@@ -797,7 +869,7 @@ export default function Auth() {
                     </button>
                   </div>
                 ) : photoConfirmed ? (
-                  <div className="flex items-center gap-2 text-green-400 text-sm font-medium">
+                  <div className="flex items-center gap-2 text-orange-400 text-sm font-medium">
                     <CheckCircle2 size={16} /> Photo confirmed
                   </div>
                 ) : (
@@ -918,7 +990,7 @@ export default function Auth() {
                       onClick={() => dlRef.current?.click()}
                       className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-colors ${
                         dlUploaded
-                          ? "border-green-500/40 bg-green-500/10 text-green-400"
+                          ? "border-orange-500/40 bg-orange-500/10 text-orange-400"
                           : "border-dashed border-border bg-card text-muted-foreground hover:border-primary/50"
                       }`}
                     >
@@ -944,7 +1016,7 @@ export default function Auth() {
                       onClick={() => rcRef.current?.click()}
                       className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-colors ${
                         rcUploaded
-                          ? "border-green-500/40 bg-green-500/10 text-green-400"
+                          ? "border-orange-500/40 bg-orange-500/10 text-orange-400"
                           : "border-dashed border-border bg-card text-muted-foreground hover:border-primary/50"
                       }`}
                     >
@@ -1034,7 +1106,7 @@ export default function Auth() {
                   onClick={() => aadhaarRef.current?.click()}
                   className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-colors ${
                     aadhaarUploaded
-                      ? "border-green-500/40 bg-green-500/10 text-green-400"
+                      ? "border-orange-500/40 bg-orange-500/10 text-orange-400"
                       : "border-dashed border-border bg-card text-muted-foreground hover:border-primary/50"
                   }`}
                 >
@@ -1054,6 +1126,23 @@ export default function Auth() {
               >
                 Continue <ChevronRight size={16} className="ml-1" />
               </Button>
+              {/* Feedback */}
+              <div className="flex justify-center pt-1">
+                <button
+                  type="button"
+                  data-ocid="auth.open_modal_button"
+                  onClick={() => setShowFeedbackModal(true)}
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+                >
+                  <MessageSquare size={13} />
+                  Give Feedback
+                </button>
+              </div>
+              <FeedbackModal
+                open={showFeedbackModal}
+                onClose={() => setShowFeedbackModal(false)}
+                screenName="Registration"
+              />
             </motion.div>
           )}
 
@@ -1063,70 +1152,92 @@ export default function Auth() {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
-              className="space-y-4"
+              className="space-y-5"
             >
-              <div className="text-center">
-                <div className="flex items-center justify-center gap-2 mb-1">
-                  <Globe size={20} className="text-primary" />
-                  <h2 className="text-xl font-display font-bold">
-                    भाषा चुनें / Choose Language
+              {/* Header with back button */}
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setStep("personalDetails")}
+                  className="w-9 h-9 flex items-center justify-center rounded-xl border border-border bg-card hover:border-primary/50 transition-colors"
+                >
+                  <ArrowLeft size={16} className="text-muted-foreground" />
+                </button>
+                <div>
+                  <h2 className="text-xl font-display font-bold leading-tight">
+                    Select Your Language
                   </h2>
+                  <p className="text-muted-foreground text-xs">
+                    Choose your preferred language to continue
+                  </p>
                 </div>
-                <p className="text-muted-foreground text-sm">
-                  Select your preferred language to continue
-                </p>
               </div>
 
+              {/* Language icon */}
+              <div className="flex items-center justify-center">
+                <div className="w-14 h-14 rounded-2xl bg-primary/20 flex items-center justify-center">
+                  <Globe size={28} className="text-primary" />
+                </div>
+              </div>
+
+              {/* Language grid — scrollable */}
               <ScrollArea className="h-72">
-                <div className="grid grid-cols-2 gap-2.5 pr-3">
-                  {LANGUAGES.map((lang) => (
+                <div className="grid grid-cols-2 gap-2 pr-2">
+                  {LANGUAGES.map((lang, idx) => (
                     <motion.button
-                      key={lang.english}
+                      key={lang}
                       type="button"
+                      data-ocid={`language.item.${idx + 1}`}
+                      onClick={() => setSelectedLanguage(lang)}
                       whileTap={{ scale: 0.97 }}
-                      onClick={() => setSelectedLanguage(lang.english)}
-                      className={`relative flex flex-col items-center py-3 px-2 rounded-2xl border-2 transition-all ${
-                        selectedLanguage === lang.english
-                          ? "border-primary bg-primary/10"
-                          : "border-border bg-card hover:border-primary/40"
+                      className={`relative flex items-center justify-between gap-2 px-4 py-3 rounded-xl border text-sm font-semibold transition-all ${
+                        selectedLanguage === lang
+                          ? "bg-primary text-primary-foreground border-primary shadow-md"
+                          : "bg-card border-border text-foreground hover:border-primary/50 hover:bg-primary/5"
                       }`}
                     >
-                      <span className="text-lg font-bold">{lang.script}</span>
-                      <span className="text-[10px] text-muted-foreground mt-0.5">
-                        {lang.english}
-                      </span>
-                      {selectedLanguage === lang.english && (
-                        <motion.div
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          className="absolute top-1.5 right-1.5"
-                        >
-                          <CheckCircle2 size={14} className="text-primary" />
-                        </motion.div>
+                      <span>{lang}</span>
+                      {selectedLanguage === lang && (
+                        <Check size={14} className="flex-shrink-0" />
                       )}
                     </motion.button>
                   ))}
                 </div>
               </ScrollArea>
 
+              {/* Selected language badge */}
+              <div className="flex items-center justify-center gap-2 py-1">
+                <span className="text-xs text-muted-foreground">Selected:</span>
+                <span className="text-sm font-bold text-primary">
+                  {selectedLanguage}
+                </span>
+              </div>
+
               <Button
                 data-ocid="language.primary_button"
-                disabled={!selectedLanguage}
-                onClick={handleLanguageSubmit}
+                onClick={() => setStep("location")}
                 className="w-full bg-primary text-primary-foreground font-semibold h-12"
               >
-                <ChevronRight size={16} className="mr-2" />
-                {selectedLanguage
-                  ? `Continue in ${selectedLanguage}`
-                  : "Select a Language"}
+                Continue <ChevronRight size={16} className="ml-1" />
               </Button>
-              <button
-                type="button"
-                onClick={() => setStep("location")}
-                className="w-full text-center text-sm text-muted-foreground hover:text-foreground transition-colors py-1"
-              >
-                Skip
-              </button>
+
+              {/* Feedback */}
+              <div className="flex justify-center pt-1">
+                <button
+                  type="button"
+                  data-ocid="auth.open_modal_button"
+                  onClick={() => setShowFeedbackModal(true)}
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+                >
+                  <MessageSquare size={13} />
+                  Give Feedback
+                </button>
+              </div>
+              <FeedbackModal
+                open={showFeedbackModal}
+                onClose={() => setShowFeedbackModal(false)}
+                screenName="Language Selection"
+              />
             </motion.div>
           )}
 
@@ -1143,9 +1254,26 @@ export default function Auth() {
                   Confirm Your Location
                 </h2>
                 <p className="text-muted-foreground text-sm">
-                  Set a pin at your current location to continue
+                  Tap "Live Location" to detect your live position
                 </p>
               </div>
+
+              {/* Live Location Button — at the TOP */}
+              <motion.button
+                type="button"
+                data-ocid="auth.secondary_button"
+                onClick={handleGoToPresent}
+                disabled={gpsLoading}
+                whileTap={{ scale: 0.97 }}
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-primary bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-all"
+              >
+                {gpsLoading ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Navigation2 size={16} />
+                )}
+                {gpsLoading ? "Getting location..." : "Live Location"}
+              </motion.button>
 
               {/* Live Map */}
               <div className="relative w-full rounded-2xl overflow-hidden">
@@ -1153,105 +1281,19 @@ export default function Auth() {
                   height="300px"
                   showOpenInMaps={false}
                   hidePermissionOverlay={true}
+                  onAddressChange={(addr) => {
+                    if (addr) setLocationTyped(addr);
+                  }}
                 />
                 {locating && (
                   <div className="absolute inset-0 flex items-center justify-center bg-background/60 backdrop-blur-sm rounded-2xl">
                     <Loader2 size={28} className="text-primary animate-spin" />
                   </div>
                 )}
-                {/* Navigation dot bottom-right */}
-                <div className="absolute bottom-3 right-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setLocating(true);
-                      setTimeout(() => {
-                        setLocating(false);
-                        setLocationName("New Delhi, India");
-                      }, 1000);
-                    }}
-                    className="w-10 h-10 bg-primary rounded-full flex items-center justify-center shadow-lg"
-                    title="Re-center"
-                  >
-                    <MapPin size={18} className="text-primary-foreground" />
-                  </button>
-                </div>
               </div>
 
-              {/* Set Pin Button */}
-              <motion.button
-                type="button"
-                data-ocid="auth.map_marker"
-                onClick={handleSetPin}
-                disabled={pinLoading}
-                whileTap={{ scale: 0.97 }}
-                className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 font-semibold text-sm transition-all ${
-                  pinnedCoords
-                    ? "border-primary/60 bg-primary/10 text-primary hover:bg-primary/20"
-                    : "border-primary bg-primary text-primary-foreground hover:bg-primary/90"
-                }`}
-              >
-                {pinLoading ? (
-                  <Loader2 size={16} className="animate-spin" />
-                ) : pinnedCoords ? (
-                  <RefreshCw size={16} />
-                ) : (
-                  <MapPin size={16} />
-                )}
-                {pinLoading
-                  ? "Getting location..."
-                  : pinnedCoords
-                    ? "Re-set Pin"
-                    : "Set Pin at My Location"}
-              </motion.button>
-
-              {/* Pin Set Confirmation Card */}
-              <AnimatePresence>
-                {pinnedCoords && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -8, scale: 0.97 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -8, scale: 0.97 }}
-                    transition={{ duration: 0.25 }}
-                    className="flex items-start gap-3 p-3 bg-green-500/15 border border-green-500/40 rounded-xl"
-                  >
-                    <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
-                      <span className="text-base">📍</span>
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-green-400">
-                        Pin Set
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-0.5 font-mono">
-                        {pinnedCoords.lat.toFixed(5)},{" "}
-                        {pinnedCoords.lng.toFixed(5)}
-                      </p>
-                    </div>
-                    <CheckCircle2
-                      size={18}
-                      className="text-green-400 ml-auto flex-shrink-0 mt-0.5"
-                    />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {locationName && (
-                <div className="flex items-start gap-2 p-3 bg-card border border-border rounded-xl">
-                  <MapPin
-                    size={16}
-                    className="text-primary flex-shrink-0 mt-0.5"
-                  />
-                  <div>
-                    <p className="text-xs text-muted-foreground">
-                      Detected Location
-                    </p>
-                    <p className="text-sm font-medium">{locationName}</p>
-                  </div>
-                </div>
-              )}
-
               <div className="space-y-1">
-                <Label>Enter Location (Optional)</Label>
+                <Label>Enter Location</Label>
                 <Input
                   data-ocid="auth.input"
                   placeholder="Type your location..."
@@ -1265,7 +1307,9 @@ export default function Auth() {
                 data-ocid="auth.primary_button"
                 onClick={handleLocationConfirm}
                 disabled={
-                  loading || loginStatus === "logging-in" || !pinnedCoords
+                  loading ||
+                  loginStatus === "logging-in" ||
+                  !locationTyped.trim()
                 }
                 className="w-full bg-primary text-primary-foreground font-semibold h-12 disabled:opacity-50"
               >
@@ -1279,11 +1323,29 @@ export default function Auth() {
                   : "Confirm Your Location & Continue"}
               </Button>
 
-              {!pinnedCoords && (
+              {!locationTyped.trim() && (
                 <p className="text-center text-xs text-muted-foreground">
-                  Set a pin to enable the continue button
+                  Tap Live Location or enter your address to continue
                 </p>
               )}
+
+              {/* Feedback */}
+              <div className="flex justify-center pt-1">
+                <button
+                  type="button"
+                  data-ocid="auth.open_modal_button"
+                  onClick={() => setShowFeedbackModal(true)}
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+                >
+                  <MessageSquare size={13} />
+                  Give Feedback
+                </button>
+              </div>
+              <FeedbackModal
+                open={showFeedbackModal}
+                onClose={() => setShowFeedbackModal(false)}
+                screenName="Confirm Your Location"
+              />
             </motion.div>
           )}
         </AnimatePresence>

@@ -6,6 +6,7 @@ import { ArrowLeft, CheckCircle2, MessageSquare, Star } from "lucide-react";
 import { motion } from "motion/react";
 import { useState } from "react";
 import { toast } from "sonner";
+import FeedbackModal from "../components/FeedbackModal";
 
 const CATEGORIES = [
   "App Experience",
@@ -18,6 +19,7 @@ const CATEGORIES = [
 export default function FeedbackScreen() {
   const router = useRouter();
   const [rating, setRating] = useState(0);
+  const [showFeedback, setShowFeedback] = useState(false);
   const [hoverRating, setHoverRating] = useState(0);
   const [category, setCategory] = useState("");
   const [message, setMessage] = useState("");
@@ -30,6 +32,13 @@ export default function FeedbackScreen() {
     }
     setSubmitted(true);
     toast.success("Thank you for your feedback!");
+    const subject = encodeURIComponent(
+      `Shopport Feedback: ${category || "General"} - ${rating} Stars`,
+    );
+    const body = encodeURIComponent(
+      `Rating: ${rating}/5 stars\nCategory: ${category || "Not specified"}\n\nMessage:\n${message || "No message provided"}`,
+    );
+    window.open(`mailto:shopportapp@gmail.com?subject=${subject}&body=${body}`);
   };
 
   return (
@@ -58,7 +67,7 @@ export default function FeedbackScreen() {
             className="flex flex-col items-center py-20 text-center"
             data-ocid="feedback.success_state"
           >
-            <CheckCircle2 size={56} className="text-green-400 mb-4" />
+            <CheckCircle2 size={56} className="text-orange-400 mb-4" />
             <h2 className="text-xl font-display font-bold mb-2">Thank You!</h2>
             <p className="text-muted-foreground text-sm mb-6">
               Your feedback helps us improve the app for all delivery partners.
@@ -173,6 +182,12 @@ export default function FeedbackScreen() {
           </>
         )}
       </div>
+
+      <FeedbackModal
+        open={showFeedback}
+        onClose={() => setShowFeedback(false)}
+        screenName="Feedback"
+      />
     </div>
   );
 }

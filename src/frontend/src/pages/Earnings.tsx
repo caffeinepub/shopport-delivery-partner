@@ -6,7 +6,6 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useRouter } from "@tanstack/react-router";
 import {
   AlertCircle,
   Banknote,
@@ -20,6 +19,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Variant_cod_online } from "../backend";
 import type { EarningsData } from "../backend";
+import FeedbackModal from "../components/FeedbackModal";
 import { useCallerProfile, useEarnings } from "../hooks/useQueries";
 
 const MOCK_EARNINGS: (EarningsData & { orderId: string })[] = [
@@ -110,13 +110,13 @@ function filterByPeriod(
 }
 
 export default function Earnings() {
-  const router = useRouter();
   const { data: profile } = useCallerProfile();
   const { data: apiEarnings, isLoading } = useEarnings(
     profile?.partnerId ?? "",
   );
 
   const [codCashReceived, setCodCashReceived] = useState("");
+  const [showFeedback, setShowFeedback] = useState(false);
   const [onlineReceived, setOnlineReceived] = useState("");
   const [netDeductions, setNetDeductions] = useState("");
   const [isReturn, setIsReturn] = useState(false);
@@ -491,10 +491,10 @@ export default function Earnings() {
               {isReturn && (
                 <div className="flex items-center justify-between text-sm">
                   <span className="flex items-center gap-2 text-muted-foreground">
-                    <RefreshCw size={13} className="text-orange-400" /> Return
+                    <RefreshCw size={13} className="text-green-400" /> Return
                     Order
                   </span>
-                  <span className="font-semibold text-orange-400">
+                  <span className="font-semibold text-green-400">
                     ₹{returnVal}
                   </span>
                 </div>
@@ -559,7 +559,7 @@ export default function Earnings() {
           <button
             type="button"
             data-ocid="earnings.secondary_button"
-            onClick={() => router.navigate({ to: "/profile/feedback" })}
+            onClick={() => setShowFeedback(true)}
             className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
           >
             <MessageSquare size={12} />
@@ -567,6 +567,12 @@ export default function Earnings() {
           </button>
         </div>
       </div>
+
+      <FeedbackModal
+        open={showFeedback}
+        onClose={() => setShowFeedback(false)}
+        screenName="Earnings"
+      />
     </div>
   );
 }

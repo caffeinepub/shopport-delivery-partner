@@ -2,12 +2,14 @@ import { Badge } from "@/components/ui/badge";
 import {
   Award,
   CheckCircle,
+  MessageSquare,
   Package,
   Star,
   Target,
   TrendingUp,
 } from "lucide-react";
 import { motion } from "motion/react";
+import { useState } from "react";
 import {
   Bar,
   BarChart,
@@ -17,6 +19,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import FeedbackModal from "../components/FeedbackModal";
 
 const weeklyData = [
   { day: "Mon", deliveries: 8, earnings: 560 },
@@ -75,6 +78,7 @@ const badges = [
 ];
 
 export default function Analytics() {
+  const [showFeedback, setShowFeedback] = useState(false);
   return (
     <div className="min-h-dvh bg-background">
       <header className="px-4 pt-12 pb-4">
@@ -236,6 +240,23 @@ export default function Analytics() {
           </div>
         </div>
       </div>
+      <div className="px-4 pb-6 pt-2 flex justify-center">
+        <button
+          type="button"
+          data-ocid="analytics.open_modal_button"
+          onClick={() => setShowFeedback(true)}
+          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+        >
+          <MessageSquare size={12} />
+          Give Feedback
+        </button>
+      </div>
+
+      <FeedbackModal
+        open={showFeedback}
+        onClose={() => setShowFeedback(false)}
+        screenName="Analytics"
+      />
     </div>
   );
 }

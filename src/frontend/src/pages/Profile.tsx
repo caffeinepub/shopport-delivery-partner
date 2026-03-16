@@ -16,6 +16,8 @@ import {
   User,
 } from "lucide-react";
 import { motion } from "motion/react";
+import { useState } from "react";
+import FeedbackModal from "../components/FeedbackModal";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import { useCallerProfile } from "../hooks/useQueries";
 
@@ -42,6 +44,7 @@ const RATING_PERIODS = [
 ];
 
 export default function Profile() {
+  const [showFeedback, setShowFeedback] = useState(false);
   const router = useRouter();
   const { data: profile } = useCallerProfile();
   const { clear } = useInternetIdentity();
@@ -207,7 +210,7 @@ export default function Profile() {
           <button
             type="button"
             data-ocid="profile.secondary_button"
-            onClick={() => router.navigate({ to: "/profile/feedback" })}
+            onClick={() => setShowFeedback(true)}
             className="w-full flex items-center gap-4 px-4 py-4 hover:bg-muted/50 transition-colors"
           >
             <div className="w-10 h-10 bg-purple-500/10 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -295,6 +298,12 @@ export default function Profile() {
           </a>
         </p>
       </div>
+
+      <FeedbackModal
+        open={showFeedback}
+        onClose={() => setShowFeedback(false)}
+        screenName="Profile"
+      />
     </div>
   );
 }

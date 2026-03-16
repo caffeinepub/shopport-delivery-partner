@@ -1,8 +1,10 @@
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useRouter } from "@tanstack/react-router";
-import { ArrowLeft, BookOpen, FileText } from "lucide-react";
+import { ArrowLeft, BookOpen, FileText, MessageSquare } from "lucide-react";
 import { motion } from "motion/react";
+import { useState } from "react";
+import FeedbackModal from "../components/FeedbackModal";
 
 const TERMS_SECTIONS = [
   {
@@ -68,6 +70,7 @@ const TERMS_SECTIONS = [
 ];
 
 export default function TermsAndConditions() {
+  const [showFeedback, setShowFeedback] = useState(false);
   const router = useRouter();
 
   return (
@@ -98,10 +101,10 @@ export default function TermsAndConditions() {
         animate={{ opacity: 1, y: 0 }}
         className="mx-4 mb-5"
       >
-        <div className="bg-gradient-to-br from-green-500/10 to-amber-500/10 border border-green-500/20 rounded-2xl p-5">
+        <div className="bg-gradient-to-br from-orange-500/10 to-amber-500/10 border border-orange-500/20 rounded-2xl p-5">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-12 h-12 bg-green-500/20 rounded-2xl flex items-center justify-center flex-shrink-0">
-              <BookOpen size={22} className="text-green-400" />
+            <div className="w-12 h-12 bg-orange-500/20 rounded-2xl flex items-center justify-center flex-shrink-0">
+              <BookOpen size={22} className="text-orange-400" />
             </div>
             <div>
               <h2 className="font-display font-bold text-base">
@@ -131,8 +134,8 @@ export default function TermsAndConditions() {
             className="bg-card border border-border rounded-2xl p-5"
           >
             <div className="flex items-start gap-4">
-              <div className="w-10 h-10 bg-green-500/10 rounded-xl flex items-center justify-center flex-shrink-0">
-                <span className="text-xs font-display font-bold text-green-400">
+              <div className="w-10 h-10 bg-orange-500/10 rounded-xl flex items-center justify-center flex-shrink-0">
+                <span className="text-xs font-display font-bold text-orange-400">
                   {section.number}
                 </span>
               </div>
@@ -162,6 +165,18 @@ export default function TermsAndConditions() {
           </p>
         </div>
 
+        {/* Feedback */}
+        <div className="flex justify-center py-2">
+          <button
+            type="button"
+            onClick={() => setShowFeedback(true)}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+          >
+            <MessageSquare size={13} />
+            Give Feedback
+          </button>
+        </div>
+
         <p className="text-center text-muted-foreground text-xs pb-2">
           © {new Date().getFullYear()} Built with love using{" "}
           <a
@@ -174,6 +189,12 @@ export default function TermsAndConditions() {
           </a>
         </p>
       </div>
+
+      <FeedbackModal
+        open={showFeedback}
+        onClose={() => setShowFeedback(false)}
+        screenName="Terms & Conditions"
+      />
     </div>
   );
 }

@@ -6,14 +6,18 @@ import {
   BadgeCheck,
   Building2,
   CheckCircle2,
+  MessageSquare,
   RefreshCw,
   Shield,
   ShieldCheck,
   Wallet,
 } from "lucide-react";
 import { motion } from "motion/react";
+import { useState } from "react";
+import FeedbackModal from "../components/FeedbackModal";
 
 export default function Insurance() {
+  const [showFeedback, setShowFeedback] = useState(false);
   const router = useRouter();
 
   return (
@@ -187,6 +191,15 @@ export default function Insurance() {
         </motion.div>
 
         <p className="text-center text-muted-foreground text-xs pb-2">
+          <button
+            type="button"
+            data-ocid="insurance.open_modal_button"
+            onClick={() => setShowFeedback(true)}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors mb-3"
+          >
+            <MessageSquare size={12} />
+            Give Feedback
+          </button>
           © {new Date().getFullYear()} Built with love using{" "}
           <a
             href={`https://caffeine.ai?utm_source=caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(window.location.hostname)}`}
@@ -198,6 +211,12 @@ export default function Insurance() {
           </a>
         </p>
       </div>
+
+      <FeedbackModal
+        open={showFeedback}
+        onClose={() => setShowFeedback(false)}
+        screenName="Insurance"
+      />
     </div>
   );
 }

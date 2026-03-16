@@ -12,6 +12,7 @@ import {
   Clock,
   FileText,
   Loader2,
+  MessageSquare,
   Shield,
   Upload,
   User,
@@ -20,6 +21,7 @@ import { motion } from "motion/react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { ExternalBlob } from "../backend";
+import FeedbackModal from "../components/FeedbackModal";
 import { useCallerProfile } from "../hooks/useQueries";
 
 const VEHICLE_TYPES = ["Bike", "Car", "Walking", "Cycle"];
@@ -73,6 +75,7 @@ export default function EditProfile() {
   const router = useRouter();
   const { data: profile } = useCallerProfile();
   const [name, setName] = useState(profile?.name ?? "");
+  const [showFeedback, setShowFeedback] = useState(false);
   const [gender, setGender] = useState("Male");
   const [vehicleType, setVehicleType] = useState("Bike");
   const [houseNo, setHouseNo] = useState("");
@@ -330,7 +333,7 @@ export default function EditProfile() {
                       </div>
                     )}
                     {doc.status === "uploaded" && (
-                      <p className="text-xs text-green-400 flex items-center gap-1 mt-0.5">
+                      <p className="text-xs text-orange-400 flex items-center gap-1 mt-0.5">
                         <CheckCircle size={10} /> Uploaded
                       </p>
                     )}
@@ -360,7 +363,7 @@ export default function EditProfile() {
                     onClick={() => fileRefs.current[idx]?.click()}
                     className={`text-xs px-3 flex-shrink-0 ${
                       doc.status === "uploaded"
-                        ? "border-green-500/40 text-green-400 hover:bg-green-500/10"
+                        ? "border-orange-500/40 text-orange-400 hover:bg-orange-500/10"
                         : "bg-primary text-primary-foreground"
                     }`}
                   >
@@ -382,6 +385,18 @@ export default function EditProfile() {
         )}
       </div>
 
+      {/* Feedback link */}
+      <div className="flex justify-center pb-4">
+        <button
+          type="button"
+          onClick={() => setShowFeedback(true)}
+          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+        >
+          <MessageSquare size={13} />
+          Give Feedback
+        </button>
+      </div>
+
       <div className="fixed bottom-0 left-0 right-0 px-4 pb-8 pt-4 bg-background border-t border-border">
         <Button
           data-ocid="editprofile.save_button"
@@ -391,6 +406,12 @@ export default function EditProfile() {
           Save Changes
         </Button>
       </div>
+
+      <FeedbackModal
+        open={showFeedback}
+        onClose={() => setShowFeedback(false)}
+        screenName="Edit Profile"
+      />
     </div>
   );
 }

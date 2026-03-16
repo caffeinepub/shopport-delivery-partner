@@ -23,13 +23,13 @@ import {
   PauseCircle,
   Phone,
   PlayCircle,
-  Route,
   XCircle,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { OrderStatus, Variant_cod_online } from "../backend";
+import FeedbackModal from "../components/FeedbackModal";
 import LiveMap from "../components/LiveMap";
 import {
   useAddCancellation,
@@ -86,6 +86,7 @@ export default function ActiveOrder() {
   const { mutateAsync: updateStatus } = useUpdateOrderStatus();
   const { mutateAsync: addCancellation } = useAddCancellation();
 
+  const [showFeedback, setShowFeedback] = useState(false);
   const [currentStatus, setCurrentStatus] = useState<OrderStatus>(
     OrderStatus.accepted,
   );
@@ -193,18 +194,6 @@ export default function ActiveOrder() {
     }
   };
 
-  const navigateToDelivery = () => {
-    const addr = encodeURIComponent(order.deliveryAddress);
-    if (coords) {
-      window.open(
-        `https://maps.google.com/maps/dir/${coords.lat},${coords.lng}/${addr}`,
-        "_blank",
-      );
-    } else {
-      window.open(`https://maps.google.com/maps/search/${addr}`, "_blank");
-    }
-  };
-
   const openRouteInMaps = () => {
     const pickup = encodeURIComponent(order.pickupAddress);
     const delivery = encodeURIComponent(order.deliveryAddress);
@@ -305,36 +294,86 @@ export default function ActiveOrder() {
         )}
       </AnimatePresence>
 
-      {/* Live Navigation Map */}
+      {/* GPS Route Tracking Map */}
       <div className="mx-4 mb-5">
         <div className="flex items-center gap-2 mb-2">
           <MapPin size={14} className="text-primary" />
-          <p className="text-sm font-bold font-display">Live Navigation</p>
+          <p className="text-sm font-bold font-display">GPS Route Tracking</p>
           <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
         </div>
         <LiveMap height="240px" showOpenInMaps={true} />
       </div>
 
-      {/* Route Card */}
-      <div className="mx-4 mb-5">
-        <div className="bg-card border border-border rounded-2xl p-4 flex items-center gap-3">
-          <div className="w-9 h-9 bg-blue-500/10 rounded-xl flex items-center justify-center flex-shrink-0">
-            <Route size={18} className="text-blue-400" />
+      {/* Two GPS Route Cards */}
+      <div className="mx-4 mb-5 space-y-3">
+        {/* Route 1: Your Location → Shop */}
+        <div className="bg-card border border-border rounded-2xl p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-7 h-7 bg-green-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+              <Navigation size={14} className="text-green-400" />
+            </div>
+            <div className="flex-1">
+              <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">
+                Route 1
+              </p>
+              <p className="text-sm font-bold text-foreground">
+                Your Location → Shop
+              </p>
+            </div>
           </div>
-          <div className="flex-1">
-            <p className="text-xs text-muted-foreground">
-              Pickup → Delivery route
-            </p>
-            <p className="text-sm font-semibold">Full route directions</p>
-          </div>
+          <p className="text-xs text-muted-foreground mb-3 pl-9">
+            {order.pickupAddress}
+          </p>
           <Button
             size="sm"
-            variant="outline"
+            data-ocid="order.primary_button"
+            onClick={() => {
+              const addr = encodeURIComponent(order.pickupAddress);
+              if (coords) {
+                window.open(
+                  `https://maps.google.com/maps/dir/${coords.lat},${coords.lng}/${addr}`,
+                  "_blank",
+                );
+              } else {
+                window.open(
+                  `https://maps.google.com/maps/search/${addr}`,
+                  "_blank",
+                );
+              }
+            }}
+            className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold text-xs h-8 rounded-xl"
+          >
+            <Navigation size={13} className="mr-1.5" />
+            Open in Maps
+          </Button>
+        </div>
+
+        {/* Route 2: Shop → Customer */}
+        <div className="bg-card border border-border rounded-2xl p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-7 h-7 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+              <MapPin size={14} className="text-primary" />
+            </div>
+            <div className="flex-1">
+              <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">
+                Route 2
+              </p>
+              <p className="text-sm font-bold text-foreground">
+                Shop → Customer
+              </p>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground mb-3 pl-9">
+            {order.deliveryAddress}
+          </p>
+          <Button
+            size="sm"
             data-ocid="order.secondary_button"
             onClick={openRouteInMaps}
-            className="text-xs border-blue-500/30 text-blue-400 hover:bg-blue-500/10"
+            className="w-full bg-primary text-primary-foreground font-semibold text-xs h-8 rounded-xl"
           >
-            Open Route in Maps
+            <Navigation size={13} className="mr-1.5" />
+            Open in Maps
           </Button>
         </div>
       </div>
@@ -432,15 +471,6 @@ export default function ActiveOrder() {
               <p className="text-xs text-muted-foreground mt-0.5">
                 {order.customerName}
               </p>
-              <Button
-                size="sm"
-                data-ocid="order.primary_button"
-                onClick={navigateToDelivery}
-                className="mt-3 w-full bg-green-500 hover:bg-green-600 text-white font-semibold text-xs h-8 rounded-xl"
-              >
-                <Navigation size={13} className="mr-1.5" />
-                Navigate to Delivery
-              </Button>
             </div>
             <Button
               variant="ghost"
@@ -615,6 +645,12 @@ export default function ActiveOrder() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <FeedbackModal
+        open={showFeedback}
+        onClose={() => setShowFeedback(false)}
+        screenName="Active Order"
+      />
     </div>
   );
 }
