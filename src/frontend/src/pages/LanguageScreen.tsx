@@ -7,33 +7,33 @@ import { toast } from "sonner";
 import FeedbackModal from "../components/FeedbackModal";
 
 const LANGUAGES = [
-  "Hindi",
-  "Bengali",
-  "Telugu",
-  "Marathi",
-  "Tamil",
-  "Urdu",
-  "Gujarati",
-  "Kannada",
-  "Odia",
-  "Malayalam",
-  "Punjabi",
-  "Assamese",
-  "Maithili",
-  "Sanskrit",
-  "Konkani",
-  "Sindhi",
-  "Dogri",
-  "Kashmiri",
-  "Manipuri",
-  "Bodo",
-  "Santali",
-  "Nepali",
+  { native: "हिन्दी", english: "Hindi" },
+  { native: "বাংলা", english: "Bengali" },
+  { native: "తెలుగు", english: "Telugu" },
+  { native: "मराठी", english: "Marathi" },
+  { native: "தமிழ்", english: "Tamil" },
+  { native: "اردو", english: "Urdu" },
+  { native: "ગુજરાતી", english: "Gujarati" },
+  { native: "ಕನ್ನಡ", english: "Kannada" },
+  { native: "ଓଡ଼ିଆ", english: "Odia" },
+  { native: "മലയാളം", english: "Malayalam" },
+  { native: "ਪੰਜਾਬੀ", english: "Punjabi" },
+  { native: "অসমীয়া", english: "Assamese" },
+  { native: "मैथिली", english: "Maithili" },
+  { native: "संस्कृतम्", english: "Sanskrit" },
+  { native: "कोंकणी", english: "Konkani" },
+  { native: "سنڌي", english: "Sindhi" },
+  { native: "डोगरी", english: "Dogri" },
+  { native: "كشميري", english: "Kashmiri" },
+  { native: "মৈতৈলোন্", english: "Manipuri" },
+  { native: "बड़ो", english: "Bodo" },
+  { native: "ᱥᱟᱱᱛᱟᱲᱤ", english: "Santali" },
+  { native: "नेपाली", english: "Nepali" },
 ];
 
 export default function LanguageScreen() {
   const router = useRouter();
-  const [selected, setSelected] = useState("English");
+  const [selected, setSelected] = useState("Hindi");
   const [showFeedback, setShowFeedback] = useState(false);
 
   const handleSave = () => {
@@ -66,23 +66,28 @@ export default function LanguageScreen() {
         <div className="grid grid-cols-2 gap-2">
           {LANGUAGES.map((lang, idx) => (
             <motion.button
-              key={lang}
+              key={lang.english}
               type="button"
               data-ocid={`language.item.${idx + 1}`}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: idx * 0.02 }}
-              onClick={() => setSelected(lang)}
-              className={`flex items-center justify-between px-4 py-3 rounded-2xl border text-sm font-medium transition-colors ${
-                selected === lang
+              onClick={() => setSelected(lang.english)}
+              className={`flex flex-col items-start justify-between px-4 py-3 rounded-2xl border text-left transition-colors ${
+                selected === lang.english
                   ? "border-primary bg-primary/20 text-primary"
                   : "border-border bg-card text-foreground hover:border-primary/50"
               }`}
             >
-              <span>{lang}</span>
-              {selected === lang && (
-                <Check size={14} className="text-primary" />
-              )}
+              <div className="flex items-center justify-between w-full">
+                <span className="text-2xl font-bold leading-tight">
+                  {lang.native}
+                </span>
+                {selected === lang.english && (
+                  <Check size={14} className="text-primary flex-shrink-0" />
+                )}
+              </div>
+              <span className="text-xs opacity-70 mt-0.5">{lang.english}</span>
             </motion.button>
           ))}
         </div>

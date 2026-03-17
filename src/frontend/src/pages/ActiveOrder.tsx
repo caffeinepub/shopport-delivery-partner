@@ -96,6 +96,8 @@ export default function ActiveOrder() {
   const [updating, setUpdating] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [route1Started, setRoute1Started] = useState(false);
+  const [route2Started, setRoute2Started] = useState(false);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
     null,
   );
@@ -297,7 +299,7 @@ export default function ActiveOrder() {
       {/* GPS Route Tracking Map */}
       <div className="mx-4 mb-5">
         <div className="flex items-center gap-2 mb-2">
-          <MapPin size={14} className="text-primary" />
+          <MapPin size={14} className="text-blue-400" />
           <p className="text-sm font-bold font-display">GPS Route Tracking</p>
           <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
         </div>
@@ -309,8 +311,8 @@ export default function ActiveOrder() {
         {/* Route 1: Your Location → Shop */}
         <div className="bg-card border border-border rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-2">
-            <div className="w-7 h-7 bg-green-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
-              <Navigation size={14} className="text-green-400" />
+            <div className="w-7 h-7 bg-blue-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+              <Navigation size={14} className="text-blue-400" />
             </div>
             <div className="flex-1">
               <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">
@@ -324,35 +326,49 @@ export default function ActiveOrder() {
           <p className="text-xs text-muted-foreground mb-3 pl-9">
             {order.pickupAddress}
           </p>
-          <Button
-            size="sm"
-            data-ocid="order.primary_button"
-            onClick={() => {
-              const addr = encodeURIComponent(order.pickupAddress);
-              if (coords) {
-                window.open(
-                  `https://maps.google.com/maps/dir/${coords.lat},${coords.lng}/${addr}`,
-                  "_blank",
-                );
-              } else {
-                window.open(
-                  `https://maps.google.com/maps/search/${addr}`,
-                  "_blank",
-                );
-              }
-            }}
-            className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold text-xs h-8 rounded-xl"
-          >
-            <Navigation size={13} className="mr-1.5" />
-            Open in Maps
-          </Button>
+          {route1Started && (
+            <div className="flex items-center gap-1.5 mb-2 px-1">
+              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+              <span className="text-[11px] text-green-400 font-semibold">
+                Route Active · GPS Tracking ON
+              </span>
+            </div>
+          )}
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              data-ocid="order.primary_button"
+              onClick={() => {
+                setRoute1Started(true);
+                if (currentStatus === OrderStatus.accepted) {
+                  doUpdateStatus(OrderStatus.outForDelivery);
+                }
+                const addr = encodeURIComponent(order.pickupAddress);
+                if (coords) {
+                  window.open(
+                    `https://maps.google.com/maps/dir/${coords.lat},${coords.lng}/${addr}`,
+                    "_blank",
+                  );
+                } else {
+                  window.open(
+                    `https://maps.google.com/maps/search/${addr}`,
+                    "_blank",
+                  );
+                }
+              }}
+              className={`flex-1 font-semibold text-xs h-8 rounded-xl ${route1Started ? "bg-green-600 text-white" : "bg-green-500 hover:bg-green-600 text-white"}`}
+            >
+              <PlayCircle size={13} className="mr-1.5" />
+              {route1Started ? "Route Active" : "Start Route 1"}
+            </Button>
+          </div>
         </div>
 
         {/* Route 2: Shop → Customer */}
         <div className="bg-card border border-border rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-2">
-            <div className="w-7 h-7 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
-              <MapPin size={14} className="text-primary" />
+            <div className="w-7 h-7 bg-blue-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+              <MapPin size={14} className="text-blue-400" />
             </div>
             <div className="flex-1">
               <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">
@@ -366,15 +382,28 @@ export default function ActiveOrder() {
           <p className="text-xs text-muted-foreground mb-3 pl-9">
             {order.deliveryAddress}
           </p>
-          <Button
-            size="sm"
-            data-ocid="order.secondary_button"
-            onClick={openRouteInMaps}
-            className="w-full bg-primary text-primary-foreground font-semibold text-xs h-8 rounded-xl"
-          >
-            <Navigation size={13} className="mr-1.5" />
-            Open in Maps
-          </Button>
+          {route2Started && (
+            <div className="flex items-center gap-1.5 mb-2 px-1">
+              <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
+              <span className="text-[11px] text-blue-400 font-semibold">
+                Route Active · GPS Tracking ON
+              </span>
+            </div>
+          )}
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              data-ocid="order.secondary_button"
+              onClick={() => {
+                setRoute2Started(true);
+                openRouteInMaps();
+              }}
+              className={`flex-1 font-semibold text-xs h-8 rounded-xl ${route2Started ? "bg-blue-600 text-white" : "bg-primary text-primary-foreground"}`}
+            >
+              <PlayCircle size={13} className="mr-1.5" />
+              {route2Started ? "Route Active" : "Start Route 2"}
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -543,14 +572,15 @@ export default function ActiveOrder() {
 
       {/* Feedback link */}
       <div className="px-4 pb-3 flex justify-center">
-        <a
-          href="/profile/feedback"
+        <button
+          type="button"
+          onClick={() => setShowFeedback(true)}
           data-ocid="activeorder.secondary_button"
           className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
         >
           <MessageSquare size={12} />
           Give Feedback
-        </a>
+        </button>
       </div>
 
       <Dialog open={showCodDialog} onOpenChange={setShowCodDialog}>

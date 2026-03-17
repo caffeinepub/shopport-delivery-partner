@@ -36,9 +36,11 @@ function PageLoader() {
 function AuthGuardLayout() {
   const { isFetching } = useActor();
   const { data: profile, isLoading } = useCallerProfile();
+  const isLocallyRegistered =
+    localStorage.getItem("shopport_registered") === "true";
 
   if (isFetching || isLoading) return <PageLoader />;
-  if (!profile) {
+  if (!profile && !isLocallyRegistered) {
     router.navigate({ to: "/auth" });
     return null;
   }

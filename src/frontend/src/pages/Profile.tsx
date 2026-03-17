@@ -10,6 +10,7 @@ import {
   Globe,
   HelpCircle,
   LogOut,
+  MapPin,
   MessageSquare,
   Shield,
   Star,
@@ -20,6 +21,7 @@ import { useState } from "react";
 import FeedbackModal from "../components/FeedbackModal";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import { useCallerProfile } from "../hooks/useQueries";
+import { getUserProfile } from "../lib/userStore";
 
 const RATING_PERIODS = [
   { label: "Today", value: 4.8, deliveries: 7, color: "text-yellow-400" },
@@ -48,9 +50,11 @@ export default function Profile() {
   const router = useRouter();
   const { data: profile } = useCallerProfile();
   const { clear } = useInternetIdentity();
+  const storedProfile = getUserProfile();
 
-  const name = profile?.name ?? "Delivery Partner";
+  const name = storedProfile.name ?? profile?.name ?? "Delivery Partner";
   const partnerId = profile?.partnerId ?? "SP-001";
+  const storedVehicle = storedProfile.vehicleType ?? "Bike";
   const initials = name
     .split(" ")
     .map((n: string) => n[0])
@@ -78,9 +82,17 @@ export default function Profile() {
           className="bg-card border border-border rounded-2xl p-5"
         >
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center text-primary-foreground text-xl font-display font-bold flex-shrink-0 shadow-lg">
-              {initials}
-            </div>
+            {storedProfile.profilePhoto ? (
+              <img
+                src={storedProfile.profilePhoto}
+                alt="Profile"
+                className="w-16 h-16 rounded-2xl object-cover flex-shrink-0 shadow-lg border-2 border-primary/30"
+              />
+            ) : (
+              <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center text-primary-foreground text-xl font-display font-bold flex-shrink-0 shadow-lg">
+                {initials}
+              </div>
+            )}
             <div className="flex-1">
               <h2 className="text-lg font-display font-bold">{name}</h2>
               <div className="flex items-center gap-2 mt-1">
@@ -109,10 +121,88 @@ export default function Profile() {
             <div className="flex items-center gap-3 text-sm">
               <Car size={16} className="text-muted-foreground flex-shrink-0" />
               <span className="text-muted-foreground">Vehicle:</span>
-              <span className="text-foreground">Bike</span>
+              <span className="text-foreground capitalize">
+                {storedVehicle}
+              </span>
             </div>
           </div>
         </motion.div>
+
+        {/* Personal Details & Documents Card */}
+        {(storedProfile.phone ||
+          storedProfile.address ||
+          storedProfile.aadhaarDoc ||
+          storedProfile.drivingLicenseDoc ||
+          storedProfile.rcDoc) && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.03 }}
+            className="bg-card border border-border rounded-2xl p-5 space-y-3"
+          >
+            <h3 className="font-display font-bold text-sm">My Details</h3>
+            {storedProfile.phone && (
+              <div className="flex items-center gap-3 text-sm">
+                <User
+                  size={15}
+                  className="text-muted-foreground flex-shrink-0"
+                />
+                <span className="text-muted-foreground">Phone:</span>
+                <span className="text-foreground">{storedProfile.phone}</span>
+              </div>
+            )}
+            {storedProfile.address && (
+              <div className="flex items-start gap-3 text-sm">
+                <MapPin
+                  size={15}
+                  className="text-muted-foreground flex-shrink-0 mt-0.5"
+                />
+                <span className="text-muted-foreground flex-shrink-0">
+                  Address:
+                </span>
+                <span className="text-foreground text-xs leading-relaxed">
+                  {storedProfile.address}
+                </span>
+              </div>
+            )}
+            {(storedProfile.aadhaarDoc ||
+              storedProfile.drivingLicenseDoc ||
+              storedProfile.rcDoc) && (
+              <div className="space-y-2 pt-1 border-t border-border">
+                <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide">
+                  Documents
+                </p>
+                {storedProfile.aadhaarDoc && (
+                  <div className="flex items-center gap-2 text-xs">
+                    <FileText size={13} className="text-primary" />
+                    <span className="text-foreground">Aadhaar:</span>
+                    <span className="text-muted-foreground truncate">
+                      {storedProfile.aadhaarDoc}
+                    </span>
+                  </div>
+                )}
+                {storedProfile.drivingLicenseDoc && (
+                  <div className="flex items-center gap-2 text-xs">
+                    <FileText size={13} className="text-primary" />
+                    <span className="text-foreground">Driving License:</span>
+                    <span className="text-muted-foreground truncate">
+                      {storedProfile.drivingLicenseDoc}
+                    </span>
+                  </div>
+                )}
+                {storedProfile.rcDoc && (
+                  <div className="flex items-center gap-2 text-xs">
+                    <FileText size={13} className="text-primary" />
+                    <span className="text-foreground">RC / Insurance:</span>
+                    <span className="text-muted-foreground truncate">
+                      {storedProfile.rcDoc}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+          </motion.div>
+        )}
 
         {/* Customer Ratings */}
         <motion.div

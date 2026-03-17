@@ -22,6 +22,7 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { ExternalBlob } from "../backend";
 import FeedbackModal from "../components/FeedbackModal";
+import LiveLocationBar from "../components/LiveLocationBar";
 import { useCallerProfile } from "../hooks/useQueries";
 
 const VEHICLE_TYPES = ["Bike", "Car", "Walking", "Cycle"];
@@ -145,6 +146,7 @@ export default function EditProfile() {
         </Button>
         <h1 className="text-xl font-display font-bold">Edit Profile</h1>
       </header>
+      <LiveLocationBar />
 
       <div className="px-4 pb-24 space-y-5">
         {/* Photo */}
@@ -390,6 +392,7 @@ export default function EditProfile() {
         <button
           type="button"
           onClick={() => setShowFeedback(true)}
+          data-ocid="editprofile.feedback.button"
           className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
         >
           <MessageSquare size={13} />

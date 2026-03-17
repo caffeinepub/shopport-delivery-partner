@@ -13,6 +13,7 @@ import {
 import { motion } from "motion/react";
 import { useState } from "react";
 import FeedbackModal from "../components/FeedbackModal";
+import LiveLocationBar from "../components/LiveLocationBar";
 
 const FAQS = [
   {
@@ -59,6 +60,7 @@ export default function HelpSupport() {
           <h1 className="text-xl font-display font-bold">Help & Support</h1>
         </div>
       </header>
+      <LiveLocationBar />
 
       <div className="px-4 pb-8 space-y-5">
         {/* Contact Options */}

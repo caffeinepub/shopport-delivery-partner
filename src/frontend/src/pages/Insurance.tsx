@@ -15,6 +15,7 @@ import {
 import { motion } from "motion/react";
 import { useState } from "react";
 import FeedbackModal from "../components/FeedbackModal";
+import LiveLocationBar from "../components/LiveLocationBar";
 
 export default function Insurance() {
   const [showFeedback, setShowFeedback] = useState(false);
@@ -33,6 +34,7 @@ export default function Insurance() {
         </Button>
         <h1 className="text-2xl font-display font-bold">Insurance</h1>
       </header>
+      <LiveLocationBar />
 
       <div className="px-4 space-y-4 pb-8">
         {/* Hero card */}

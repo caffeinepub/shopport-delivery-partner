@@ -20,6 +20,7 @@ import {
   YAxis,
 } from "recharts";
 import FeedbackModal from "../components/FeedbackModal";
+import LiveLocationBar from "../components/LiveLocationBar";
 
 const weeklyData = [
   { day: "Mon", deliveries: 8, earnings: 560 },
@@ -87,6 +88,7 @@ export default function Analytics() {
           Your performance overview
         </p>
       </header>
+      <LiveLocationBar />
 
       <div className="px-4 space-y-5 pb-6">
         {/* Stats Grid */}

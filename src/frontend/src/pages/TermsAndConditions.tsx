@@ -5,6 +5,7 @@ import { ArrowLeft, BookOpen, FileText, MessageSquare } from "lucide-react";
 import { motion } from "motion/react";
 import { useState } from "react";
 import FeedbackModal from "../components/FeedbackModal";
+import LiveLocationBar from "../components/LiveLocationBar";
 
 const TERMS_SECTIONS = [
   {
@@ -94,6 +95,7 @@ export default function TermsAndConditions() {
           <FileText size={18} className="text-amber-400" />
         </div>
       </header>
+      <LiveLocationBar />
 
       {/* Hero Banner */}
       <motion.div
@@ -170,6 +172,7 @@ export default function TermsAndConditions() {
           <button
             type="button"
             onClick={() => setShowFeedback(true)}
+            data-ocid="terms.feedback.button"
             className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
           >
             <MessageSquare size={13} />

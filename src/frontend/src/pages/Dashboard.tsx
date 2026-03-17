@@ -20,6 +20,7 @@ import {
   Navigation2,
   Package,
   Pause,
+  RotateCcw,
   Star,
   UtensilsCrossed,
   X,
@@ -184,15 +185,10 @@ export default function Dashboard() {
   const [breakRemaining, setBreakRemaining] = useState(0);
   const [liveAddress, setLiveAddress] = useState<string | null>(null);
   const [radiusKm, setRadiusKm] = useState(5);
+  const [showReturnOrder, setShowReturnOrder] = useState(false);
 
-  const RADIUS_OPTIONS = [1, 2, 3, 5, 10];
-  const radiusToWidth: Record<number, string> = {
-    1: "30%",
-    2: "45%",
-    3: "55%",
-    5: "72%",
-    10: "90%",
-  };
+  // Dynamic radius: scale so 10km = ~85% of container width
+  const radiusCircleSize = `${Math.min(85, Math.max(15, (radiusKm / 10) * 85))}%`;
   const istTime = useISTTime();
 
   // Break countdown
@@ -353,26 +349,47 @@ export default function Dashboard() {
 
       {/* Live Location Map */}
       <div className="px-4 mb-2">
-        {/* KM Radius Selector */}
-        <div className="flex items-center gap-2 mb-3 flex-wrap">
-          <span className="text-xs text-muted-foreground font-medium">
+        {/* KM Radius Input */}
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-xs text-muted-foreground font-medium flex-shrink-0">
             Delivery radius:
           </span>
-          {RADIUS_OPTIONS.map((km) => (
-            <button
-              key={km}
-              type="button"
-              data-ocid="dashboard.toggle"
-              onClick={() => setRadiusKm(km)}
-              className={`text-xs font-bold px-2.5 py-1 rounded-full border transition-colors ${
-                radiusKm === km
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-muted/60 text-muted-foreground border-border hover:border-primary/50"
-              }`}
-            >
-              {km} km
-            </button>
-          ))}
+          <div className="flex items-center gap-1.5 flex-1">
+            <input
+              type="number"
+              data-ocid="dashboard.input"
+              min={1}
+              max={50}
+              value={radiusKm}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                if (v >= 1 && v <= 50) setRadiusKm(v);
+              }}
+              onKeyDown={(e) =>
+                e.key === "Enter" &&
+                (e.currentTarget as HTMLInputElement).blur()
+              }
+              className="w-16 text-center text-sm font-bold bg-card border border-primary rounded-lg px-2 py-1 text-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+            <span className="text-xs text-primary font-bold">KM</span>
+          </div>
+          <div className="flex gap-1">
+            {[1, 3, 5, 10].map((km) => (
+              <button
+                key={km}
+                type="button"
+                data-ocid="dashboard.toggle"
+                onClick={() => setRadiusKm(km)}
+                className={`text-xs font-bold px-2 py-0.5 rounded-full border transition-colors ${
+                  radiusKm === km
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-muted/60 text-muted-foreground border-border hover:border-primary/50"
+                }`}
+              >
+                {km}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="flex items-center gap-2 mb-2">
@@ -395,8 +412,8 @@ export default function Dashboard() {
           <div className="absolute inset-0 pointer-events-none flex items-center justify-center rounded-2xl overflow-hidden">
             <div
               style={{
-                width: radiusToWidth[radiusKm],
-                paddingTop: radiusToWidth[radiusKm],
+                width: radiusCircleSize,
+                paddingTop: radiusCircleSize,
                 position: "relative",
                 borderRadius: "50%",
                 border: "2px solid rgba(34,197,94,0.55)",
@@ -714,6 +731,71 @@ export default function Dashboard() {
               </motion.div>
             ))}
           </div>
+        )}
+      </div>
+
+      {/* Return Order Section */}
+      <div className="mx-4 mb-4">
+        <button
+          type="button"
+          data-ocid="dashboard.return_order_button"
+          onClick={() => setShowReturnOrder(!showReturnOrder)}
+          className="w-full flex items-center justify-between bg-card border border-border rounded-2xl p-4 hover:bg-muted/50 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-amber-500/10 rounded-xl flex items-center justify-center">
+              <RotateCcw size={16} className="text-amber-400" />
+            </div>
+            <div className="text-left">
+              <p className="text-sm font-semibold">Return Order</p>
+              <p className="text-xs text-muted-foreground">
+                Mark a delivery as returned
+              </p>
+            </div>
+          </div>
+          <ChevronRight
+            size={16}
+            className={`text-muted-foreground transition-transform ${showReturnOrder ? "rotate-90" : ""}`}
+          />
+        </button>
+        {showReturnOrder && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="mt-2 bg-card border border-border rounded-2xl p-4 space-y-3"
+          >
+            <p className="text-xs text-muted-foreground">
+              Select the order to return:
+            </p>
+            {MOCK_ORDERS.slice(0, 2).map((o) => (
+              <div
+                key={o.id}
+                className="flex items-center justify-between bg-muted rounded-xl p-3"
+              >
+                <div>
+                  <p className="text-sm font-semibold">{o.id.toUpperCase()}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {o.shopName} · {o.distance}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  data-ocid={`dashboard.return.${o.id}.button`}
+                  onClick={() => {
+                    toast.success(
+                      `Order ${o.id.toUpperCase()} marked as returned`,
+                    );
+                    setShowReturnOrder(false);
+                  }}
+                  className="bg-amber-500 hover:bg-amber-600 text-white text-xs h-8 rounded-xl px-3"
+                >
+                  <RotateCcw size={12} className="mr-1" />
+                  Return
+                </Button>
+              </div>
+            ))}
+          </motion.div>
         )}
       </div>
 

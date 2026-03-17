@@ -36,6 +36,7 @@ import FeedbackModal from "../components/FeedbackModal";
 import LiveMap from "../components/LiveMap";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import { useCallerProfile, useSaveProfile } from "../hooks/useQueries";
+import { setUserProfile } from "../lib/userStore";
 
 type Step =
   | "terms"
@@ -46,28 +47,28 @@ type Step =
   | "location";
 
 const LANGUAGES = [
-  "Hindi",
-  "Bengali",
-  "Telugu",
-  "Marathi",
-  "Tamil",
-  "Urdu",
-  "Gujarati",
-  "Kannada",
-  "Odia",
-  "Malayalam",
-  "Punjabi",
-  "Assamese",
-  "Maithili",
-  "Sanskrit",
-  "Konkani",
-  "Sindhi",
-  "Dogri",
-  "Kashmiri",
-  "Manipuri",
-  "Bodo",
-  "Santali",
-  "Nepali",
+  { native: "हिन्दी", english: "Hindi" },
+  { native: "বাংলা", english: "Bengali" },
+  { native: "తెలుగు", english: "Telugu" },
+  { native: "मराठी", english: "Marathi" },
+  { native: "தமிழ்", english: "Tamil" },
+  { native: "اردو", english: "Urdu" },
+  { native: "ગુજરાતી", english: "Gujarati" },
+  { native: "ಕನ್ನಡ", english: "Kannada" },
+  { native: "ଓଡ଼ିଆ", english: "Odia" },
+  { native: "മലയാളം", english: "Malayalam" },
+  { native: "ਪੰਜਾਬੀ", english: "Punjabi" },
+  { native: "অসমীয়া", english: "Assamese" },
+  { native: "मैथिली", english: "Maithili" },
+  { native: "संस्कृतम्", english: "Sanskrit" },
+  { native: "कोंकणी", english: "Konkani" },
+  { native: "سنڌي", english: "Sindhi" },
+  { native: "डोगरी", english: "Dogri" },
+  { native: "كشميري", english: "Kashmiri" },
+  { native: "মৈতৈলোন্", english: "Manipuri" },
+  { native: "बड़ो", english: "Bodo" },
+  { native: "ᱥᱟᱱᱛᱟᱲᱤ", english: "Santali" },
+  { native: "नेपाली", english: "Nepali" },
 ];
 
 const TC_POINTS = [
@@ -399,6 +400,13 @@ export default function Auth() {
   const [locating, setLocating] = useState(false);
   const [locationTyped, setLocationTyped] = useState("");
   const [gpsLoading, setGpsLoading] = useState(false);
+  const [pinnedLocation, setPinnedLocation] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
+  const [pinDropping, setPinDropping] = useState(false);
+
+  const gpsWatchRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (step === "location") {
@@ -406,8 +414,29 @@ export default function Auth() {
       const t = setTimeout(() => {
         setLocating(false);
       }, 1500);
-      return () => clearTimeout(t);
+      // Auto-start GPS tracking when location step loads
+      handleGoToPresent();
+      // Also start continuous watchPosition for live tracking
+      if (navigator.geolocation) {
+        gpsWatchRef.current = navigator.geolocation.watchPosition(
+          async (pos) => {
+            const lat = pos.coords.latitude;
+            const lng = pos.coords.longitude;
+            setPinnedLocation({ lat, lng });
+          },
+          () => {},
+          { enableHighAccuracy: true, timeout: 15000, maximumAge: 3000 },
+        );
+      }
+      return () => {
+        clearTimeout(t);
+        if (gpsWatchRef.current !== null) {
+          navigator.geolocation.clearWatch(gpsWatchRef.current);
+          gpsWatchRef.current = null;
+        }
+      };
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
 
   const handleGoToPresent = () => {
@@ -419,6 +448,9 @@ export default function Auth() {
           const lng = pos.coords.longitude;
           setGpsLoading(false);
           toast.success("Live location found!");
+          setPinDropping(true);
+          setPinnedLocation({ lat, lng });
+          setTimeout(() => setPinDropping(false), 600);
           try {
             const res = await fetch(
               `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18`,
@@ -427,7 +459,7 @@ export default function Auth() {
             const data = await res.json();
             const addr = data.address || {};
             const parts = [
-              addr.house_number,
+              // house_number excluded per requirement
               addr.road || addr.pedestrian,
               addr.neighbourhood || addr.suburb,
               addr.city || addr.town || addr.village,
@@ -449,6 +481,9 @@ export default function Auth() {
         () => {
           setGpsLoading(false);
           setLocationTyped("New Delhi, India");
+          setPinDropping(true);
+          setPinnedLocation({ lat: 28.6139, lng: 77.209 });
+          setTimeout(() => setPinDropping(false), 600);
           toast.success("Location detected!");
         },
         { timeout: 8000, enableHighAccuracy: true },
@@ -497,24 +532,37 @@ export default function Auth() {
       toast.error("Please upload your Aadhaar Card");
       return;
     }
+    setUserProfile({
+      name: name.trim(),
+      gender,
+      vehicleType,
+      phone: `${countryCode} ${phone}`,
+      address: [houseStreet, city, district, state, country]
+        .filter(Boolean)
+        .join(", "),
+    });
     setStep("language");
   };
 
   const handleLocationConfirm = async () => {
     setLoading(true);
+    // Save location locally
+    const confirmedLocation = locationTyped.trim() || "Location confirmed";
+    localStorage.setItem("shopport_location", confirmedLocation);
+    localStorage.setItem("shopport_registered", "true");
+    // Attempt backend save but don't block navigation on failure
     try {
       await login();
       await saveProfile({
         name: name.trim(),
         partnerId: `SP-${String(Math.floor(Math.random() * 900) + 100)}`,
       });
-      toast.success("Welcome aboard!");
-      router.navigate({ to: "/dashboard" });
     } catch {
-      toast.error("Registration failed. Please try again.");
-    } finally {
-      setLoading(false);
+      // Backend save failed but we still continue to home screen
     }
+    toast.success("Welcome aboard!");
+    setLoading(false);
+    router.navigate({ to: "/dashboard" });
   };
 
   return (
@@ -887,7 +935,11 @@ export default function Auth() {
                     <button
                       type="button"
                       data-ocid="auth.confirm_button"
-                      onClick={() => setPhotoConfirmed(true)}
+                      onClick={() => {
+                        setPhotoConfirmed(true);
+                        if (photoPreviewUrl)
+                          setUserProfile({ profilePhoto: photoPreviewUrl });
+                      }}
                       className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-bold"
                     >
                       Confirm Photo
@@ -982,7 +1034,13 @@ export default function Auth() {
                       type="file"
                       accept="image/*,.pdf"
                       className="hidden"
-                      onChange={() => setDlUploaded(true)}
+                      onChange={(e) => {
+                        setDlUploaded(true);
+                        setUserProfile({
+                          drivingLicenseDoc:
+                            e.target.files?.[0]?.name ?? "driving_license.pdf",
+                        });
+                      }}
                     />
                     <button
                       type="button"
@@ -1008,7 +1066,13 @@ export default function Auth() {
                       type="file"
                       accept="image/*,.pdf"
                       className="hidden"
-                      onChange={() => setRcUploaded(true)}
+                      onChange={(e) => {
+                        setRcUploaded(true);
+                        setUserProfile({
+                          rcDoc:
+                            e.target.files?.[0]?.name ?? "rc_insurance.pdf",
+                        });
+                      }}
                     />
                     <button
                       type="button"
@@ -1098,7 +1162,12 @@ export default function Auth() {
                   type="file"
                   accept="image/*,.pdf"
                   className="hidden"
-                  onChange={() => setAadhaarUploaded(true)}
+                  onChange={(e) => {
+                    setAadhaarUploaded(true);
+                    setUserProfile({
+                      aadhaarDoc: e.target.files?.[0]?.name ?? "aadhaar.pdf",
+                    });
+                  }}
                 />
                 <button
                   type="button"
@@ -1185,21 +1254,28 @@ export default function Auth() {
                 <div className="grid grid-cols-2 gap-2 pr-2">
                   {LANGUAGES.map((lang, idx) => (
                     <motion.button
-                      key={lang}
+                      key={lang.english}
                       type="button"
                       data-ocid={`language.item.${idx + 1}`}
-                      onClick={() => setSelectedLanguage(lang)}
+                      onClick={() => setSelectedLanguage(lang.english)}
                       whileTap={{ scale: 0.97 }}
-                      className={`relative flex items-center justify-between gap-2 px-4 py-3 rounded-xl border text-sm font-semibold transition-all ${
-                        selectedLanguage === lang
+                      className={`relative flex flex-col items-start gap-0.5 px-4 py-3 rounded-xl border transition-all ${
+                        selectedLanguage === lang.english
                           ? "bg-primary text-primary-foreground border-primary shadow-md"
                           : "bg-card border-border text-foreground hover:border-primary/50 hover:bg-primary/5"
                       }`}
                     >
-                      <span>{lang}</span>
-                      {selectedLanguage === lang && (
-                        <Check size={14} className="flex-shrink-0" />
-                      )}
+                      <div className="flex items-center justify-between w-full">
+                        <span className="text-base font-bold leading-tight">
+                          {lang.native}
+                        </span>
+                        {selectedLanguage === lang.english && (
+                          <Check size={13} className="flex-shrink-0" />
+                        )}
+                      </div>
+                      <span className="text-[10px] opacity-70">
+                        {lang.english}
+                      </span>
                     </motion.button>
                   ))}
                 </div>
@@ -1209,7 +1285,9 @@ export default function Auth() {
               <div className="flex items-center justify-center gap-2 py-1">
                 <span className="text-xs text-muted-foreground">Selected:</span>
                 <span className="text-sm font-bold text-primary">
-                  {selectedLanguage}
+                  {LANGUAGES.find((l) => l.english === selectedLanguage)
+                    ?.native ?? selectedLanguage}{" "}
+                  ({selectedLanguage})
                 </span>
               </div>
 
@@ -1290,27 +1368,106 @@ export default function Auth() {
                     <Loader2 size={28} className="text-primary animate-spin" />
                   </div>
                 )}
+                {/* Fixed Pin badge - top-left corner */}
+                {pinnedLocation && !gpsLoading && (
+                  <div className="absolute top-3 left-3 z-20 pointer-events-none">
+                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-primary/90 backdrop-blur-sm shadow-md">
+                      <MapPin size={11} className="text-white" fill="white" />
+                      <span className="text-white text-[10px] font-bold tracking-wider uppercase">
+                        Fixed Pin
+                      </span>
+                    </div>
+                  </div>
+                )}
+                {/* GPS Pin overlay - centered on map, fixed */}
+                {pinnedLocation && (
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
+                    <div
+                      className={`flex flex-col items-center ${pinDropping ? "animate-bounce" : ""}`}
+                      style={{ transition: "transform 0.3s ease" }}
+                    >
+                      {/* Pulsing rings behind pin */}
+                      <div className="relative flex items-center justify-center">
+                        <div className="absolute w-16 h-16 bg-primary/20 rounded-full animate-ping" />
+                        <div className="absolute w-10 h-10 bg-primary/30 rounded-full animate-pulse" />
+                        {/* Pin icon */}
+                        <div
+                          className="relative w-12 h-12 bg-primary rounded-full flex items-center justify-center shadow-xl border-4 border-white z-10"
+                          style={{
+                            boxShadow: "0 4px 20px rgba(34,197,94,0.7)",
+                          }}
+                        >
+                          <MapPin
+                            size={20}
+                            className="text-white"
+                            fill="white"
+                          />
+                        </div>
+                      </div>
+                      {/* Pin stem */}
+                      <div className="w-0.5 h-5 bg-primary" />
+                      {/* Shadow dot */}
+                      <div className="w-4 h-1.5 bg-black/30 rounded-full" />
+                    </div>
+                  </div>
+                )}
+                {/* GPS icon button inside map - bottom right */}
+                <button
+                  type="button"
+                  data-ocid="auth.map_marker"
+                  onClick={handleGoToPresent}
+                  disabled={gpsLoading}
+                  title="Detect GPS location"
+                  className="absolute bottom-3 right-3 z-10 w-10 h-10 bg-white/90 dark:bg-card/90 border border-border rounded-xl shadow-lg flex items-center justify-center hover:bg-white transition-colors disabled:opacity-60"
+                >
+                  {gpsLoading ? (
+                    <Loader2 size={16} className="text-primary animate-spin" />
+                  ) : (
+                    <Navigation2 size={16} className="text-primary" />
+                  )}
+                </button>
               </div>
-
-              <div className="space-y-1">
-                <Label>Enter Location</Label>
-                <Input
-                  data-ocid="auth.input"
-                  placeholder="Type your location..."
-                  value={locationTyped}
-                  onChange={(e) => setLocationTyped(e.target.value)}
-                  className="bg-card border-border"
-                />
-              </div>
+              {/* Address display card */}
+              {locationTyped ? (
+                <div className="flex items-start gap-3 p-4 rounded-2xl bg-primary/5 border border-primary/25 shadow-sm">
+                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/15 border border-primary/30 flex items-center justify-center mt-0.5">
+                    <MapPin
+                      size={18}
+                      className="text-primary"
+                      fill="currentColor"
+                      style={{ fillOpacity: 0.25 }}
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-bold tracking-widest text-primary uppercase mb-1">
+                      Your Location
+                    </p>
+                    <p className="text-sm font-medium text-foreground leading-snug">
+                      {locationTyped}
+                    </p>
+                    {pinnedLocation && (
+                      <p className="text-[10px] text-muted-foreground mt-1">
+                        {pinnedLocation.lat.toFixed(5)},{" "}
+                        {pinnedLocation.lng.toFixed(5)} · Pin is fixed
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3 p-4 rounded-2xl border-2 border-dashed border-primary/30 bg-primary/5">
+                  <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <MapPin size={16} className="text-primary/60" />
+                  </div>
+                  <p className="text-sm text-muted-foreground italic">
+                    Tap Live Location to detect your address
+                  </p>
+                </div>
+              )}
 
               <Button
                 data-ocid="auth.primary_button"
                 onClick={handleLocationConfirm}
-                disabled={
-                  loading ||
-                  loginStatus === "logging-in" ||
-                  !locationTyped.trim()
-                }
+                disabled={loading || loginStatus === "logging-in"}
                 className="w-full bg-primary text-primary-foreground font-semibold h-12 disabled:opacity-50"
               >
                 {loading ? (
@@ -1322,12 +1479,6 @@ export default function Auth() {
                   ? "Registering..."
                   : "Confirm Your Location & Continue"}
               </Button>
-
-              {!locationTyped.trim() && (
-                <p className="text-center text-xs text-muted-foreground">
-                  Tap Live Location or enter your address to continue
-                </p>
-              )}
 
               {/* Feedback */}
               <div className="flex justify-center pt-1">

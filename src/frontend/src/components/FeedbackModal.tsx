@@ -5,16 +5,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { CheckCircle2, MessageSquare, X } from "lucide-react";
-import { useState } from "react";
-import { toast } from "sonner";
+import { MessageSquare, Send, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
-interface AdminReply {
+interface ChatMessage {
   id: string;
-  message: string;
-  date: string;
+  text: string;
+  sender: "user" | "admin";
+  timestamp: string;
 }
 
 interface FeedbackModalProps {
@@ -23,50 +21,139 @@ interface FeedbackModalProps {
   screenName?: string;
 }
 
+function getMessages(): ChatMessage[] {
+  try {
+    return JSON.parse(
+      localStorage.getItem("shopport_feedback_messages") || "[]",
+    );
+  } catch {
+    return [];
+  }
+}
+
+function saveMessages(msgs: ChatMessage[]) {
+  localStorage.setItem("shopport_feedback_messages", JSON.stringify(msgs));
+}
+
+function formatTime(iso: string) {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleTimeString("en-IN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  } catch {
+    return "";
+  }
+}
+
+async function sendToAdmin(screenName: string | undefined, message: string) {
+  // Silently send feedback to admin email in background — user never sees this
+  const subject = encodeURIComponent(
+    `Shopport Feedback${screenName ? ` - ${screenName}` : ""}`,
+  );
+  const body = encodeURIComponent(message);
+  try {
+    const link = document.createElement("a");
+    link.href = `mailto:shopportapp@gmail.com?subject=${subject}&body=${body}`;
+    link.style.display = "none";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } catch {
+    // silently ignore
+  }
+}
+
 export default function FeedbackModal({
   open,
   onClose,
   screenName,
 }: FeedbackModalProps) {
-  const [message, setMessage] = useState("");
-  const [submitted, setSubmitted] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const [messages, setMessages] = useState<ChatMessage[]>(getMessages);
+  const [inputText, setInputText] = useState("");
+  const [sending, setSending] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  const adminReplies: AdminReply[] = (() => {
-    try {
-      return JSON.parse(localStorage.getItem("shopport_admin_replies") || "[]");
-    } catch {
-      return [];
+  // Load admin replies from localStorage and merge as admin messages
+  useEffect(() => {
+    if (!open) return;
+    const adminReplies = (() => {
+      try {
+        return JSON.parse(
+          localStorage.getItem("shopport_admin_replies") || "[]",
+        ) as Array<{ id?: string; message: string; date: string }>;
+      } catch {
+        return [];
+      }
+    })();
+    if (adminReplies.length > 0) {
+      setMessages((prev) => {
+        const existingIds = new Set(prev.map((m) => m.id));
+        const newAdminMsgs: ChatMessage[] = adminReplies
+          .filter((r) => !existingIds.has(`admin_${r.id ?? r.date}`))
+          .map((r) => ({
+            id: `admin_${r.id ?? r.date}`,
+            text: r.message,
+            sender: "admin" as const,
+            timestamp: r.date,
+          }));
+        if (newAdminMsgs.length === 0) return prev;
+        const merged = [...prev, ...newAdminMsgs].sort(
+          (a, b) =>
+            new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+        );
+        saveMessages(merged);
+        return merged;
+      });
     }
-  })();
+  }, [open]);
 
-  const handleSubmit = async () => {
-    if (!message.trim()) return;
-    setSubmitting(true);
-    // Silently attempt to open mail client without exposing email to UI
-    const subject = encodeURIComponent(
-      `Shopport Feedback${screenName ? ` - ${screenName}` : ""}`,
+  useEffect(() => {
+    if (open) {
+      setTimeout(
+        () => bottomRef.current?.scrollIntoView({ behavior: "smooth" }),
+        100,
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  const handleSend = async () => {
+    const text = inputText.trim();
+    if (!text || sending) return;
+    setSending(true);
+    const msg: ChatMessage = {
+      id: `user_${Date.now()}`,
+      text,
+      sender: "user",
+      timestamp: new Date().toISOString(),
+    };
+    const updated = [...messages, msg];
+    setMessages(updated);
+    saveMessages(updated);
+    setInputText("");
+    // Send to admin silently in background
+    sendToAdmin(screenName, text);
+    await new Promise((r) => setTimeout(r, 300));
+    setSending(false);
+    setTimeout(
+      () => bottomRef.current?.scrollIntoView({ behavior: "smooth" }),
+      100,
     );
-    const body = encodeURIComponent(message.trim());
-    try {
-      const link = document.createElement("a");
-      link.href = `mailto:shopportapp@gmail.com?subject=${subject}&body=${body}`;
-      link.style.display = "none";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } catch {
-      // ignore
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
     }
-    await new Promise((r) => setTimeout(r, 500));
-    setSubmitting(false);
-    setSubmitted(true);
-    toast.success("Feedback sent successfully! We'll get back to you soon.");
   };
 
   const handleClose = () => {
-    setMessage("");
-    setSubmitted(false);
+    setInputText("");
     onClose();
   };
 
@@ -79,19 +166,27 @@ export default function FeedbackModal({
     >
       <DialogContent
         data-ocid="feedback.dialog"
-        className="bg-card border-border max-w-sm w-full rounded-2xl p-0 overflow-hidden"
+        className="bg-card border-border max-w-sm w-full rounded-2xl p-0 overflow-hidden flex flex-col"
+        style={{ maxHeight: "85dvh" }}
       >
         {/* Header */}
-        <div className="bg-primary/10 border-b border-border px-5 pt-5 pb-4">
+        <div className="bg-primary/10 border-b border-border px-4 pt-4 pb-3 flex-shrink-0">
           <DialogHeader>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-xl bg-primary/20 flex items-center justify-center">
                   <MessageSquare size={16} className="text-primary" />
                 </div>
-                <DialogTitle className="text-base font-display font-bold">
-                  Give Feedback
-                </DialogTitle>
+                <div>
+                  <DialogTitle className="text-sm font-display font-bold leading-tight">
+                    Support Chat
+                  </DialogTitle>
+                  {screenName && (
+                    <p className="text-[10px] text-muted-foreground">
+                      {screenName}
+                    </p>
+                  )}
+                </div>
               </div>
               <button
                 type="button"
@@ -102,100 +197,96 @@ export default function FeedbackModal({
                 <X size={14} className="text-muted-foreground" />
               </button>
             </div>
-            {screenName && (
-              <p className="text-xs text-muted-foreground mt-1 ml-10">
-                {screenName}
-              </p>
-            )}
           </DialogHeader>
         </div>
 
-        <div className="px-5 py-4 space-y-4">
-          {submitted ? (
-            <div
-              data-ocid="feedback.success_state"
-              className="flex flex-col items-center gap-3 py-6 text-center"
-            >
-              <div className="w-14 h-14 rounded-full bg-green-500/15 border border-green-500/30 flex items-center justify-center">
-                <CheckCircle2 size={28} className="text-green-500" />
+        {/* Messages */}
+        <div
+          className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-[200px]"
+          style={{ maxHeight: "50dvh" }}
+        >
+          {messages.length === 0 && (
+            <div className="flex flex-col items-center justify-center h-full py-8 text-center">
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
+                <MessageSquare size={20} className="text-primary" />
               </div>
-              <div>
-                <p className="font-semibold text-foreground">Feedback Sent!</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Thank you. We'll review your feedback and get back to you
-                  soon.
+              <p className="text-sm font-semibold text-foreground">
+                Send us a message
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                We usually reply within 24 hours
+              </p>
+            </div>
+          )}
+          {messages.map((msg) => (
+            <div
+              key={msg.id}
+              data-ocid={
+                msg.sender === "user"
+                  ? "feedback.success_state"
+                  : "feedback.panel"
+              }
+              className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
+            >
+              <div
+                className={`max-w-[80%] px-3 py-2 rounded-2xl ${
+                  msg.sender === "user"
+                    ? "bg-primary text-primary-foreground rounded-br-sm"
+                    : "bg-primary/15 text-foreground border border-primary/20 rounded-bl-sm"
+                }`}
+              >
+                {msg.sender === "admin" && (
+                  <p className="text-[10px] font-bold text-primary mb-1">
+                    Shopport Team
+                  </p>
+                )}
+                <p className="text-sm leading-relaxed">{msg.text}</p>
+                <p
+                  className={`text-[10px] mt-1 ${
+                    msg.sender === "user"
+                      ? "text-primary-foreground/60"
+                      : "text-muted-foreground"
+                  }`}
+                >
+                  {formatTime(msg.timestamp)}
                 </p>
               </div>
-              <Button
-                data-ocid="feedback.close_button"
-                onClick={handleClose}
-                className="bg-primary text-primary-foreground px-8"
-              >
-                Done
-              </Button>
             </div>
-          ) : (
-            <>
-              <div className="space-y-2">
-                <Label
-                  htmlFor="feedback-message"
-                  className="text-sm font-medium text-foreground"
-                >
-                  Your Message
-                </Label>
-                <Textarea
-                  id="feedback-message"
-                  data-ocid="feedback.textarea"
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  placeholder="Tell us how we can improve..."
-                  className="bg-background border-border resize-none min-h-[100px]"
-                  rows={4}
-                />
-              </div>
-              <Button
-                data-ocid="feedback.submit_button"
-                onClick={handleSubmit}
-                disabled={!message.trim() || submitting}
-                className="w-full bg-primary text-primary-foreground font-semibold"
-              >
-                {submitting ? (
-                  <span className="flex items-center gap-2">
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Sending...
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-2">
-                    <MessageSquare size={15} />
-                    Send Feedback
-                  </span>
-                )}
-              </Button>
-            </>
-          )}
+          ))}
+          <div ref={bottomRef} />
+        </div>
 
-          {/* Admin replies section */}
-          {adminReplies.length > 0 && (
-            <div className="border-t border-border pt-4">
-              <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider">
-                Replies from Shopport Team
-              </p>
-              <div className="space-y-3">
-                {adminReplies.map((reply, i) => (
-                  <div
-                    key={reply.id || i}
-                    data-ocid={`feedback.item.${i + 1}`}
-                    className="bg-primary/8 border border-primary/20 rounded-xl px-3.5 py-3"
-                  >
-                    <p className="text-sm text-foreground">{reply.message}</p>
-                    <p className="text-[10px] text-muted-foreground mt-1.5">
-                      {reply.date}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+        {/* Input */}
+        <div className="border-t border-border px-3 py-3 flex-shrink-0">
+          <div className="flex items-end gap-2">
+            <textarea
+              ref={inputRef}
+              data-ocid="feedback.textarea"
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Type your message..."
+              rows={1}
+              className="flex-1 bg-background border border-border rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-primary transition-all text-foreground placeholder:text-muted-foreground"
+              style={{ maxHeight: "80px", overflowY: "auto" }}
+            />
+            <Button
+              data-ocid="feedback.submit_button"
+              size="icon"
+              onClick={handleSend}
+              disabled={!inputText.trim() || sending}
+              className="w-9 h-9 rounded-xl bg-primary text-primary-foreground flex-shrink-0 disabled:opacity-50"
+            >
+              {sending ? (
+                <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <Send size={15} />
+              )}
+            </Button>
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-1.5 text-center">
+            Message sent to support team
+          </p>
         </div>
       </DialogContent>
     </Dialog>

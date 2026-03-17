@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { Variant_cod_online } from "../backend";
 import type { EarningsData } from "../backend";
 import FeedbackModal from "../components/FeedbackModal";
+import LiveLocationBar from "../components/LiveLocationBar";
 import { useCallerProfile, useEarnings } from "../hooks/useQueries";
 
 const MOCK_EARNINGS: (EarningsData & { orderId: string })[] = [
@@ -350,6 +351,7 @@ export default function Earnings() {
         <h1 className="text-2xl font-display font-bold">Earnings</h1>
         <p className="text-muted-foreground text-sm">Track your income</p>
       </header>
+      <LiveLocationBar />
       <div className="px-4 space-y-5 pb-8">
         {/* Manual Entry Card */}
         <motion.div
