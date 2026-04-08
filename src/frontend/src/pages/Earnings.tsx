@@ -17,10 +17,9 @@ import {
 import { motion } from "motion/react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Variant_cod_online } from "../backend";
-import type { EarningsData } from "../backend";
 import FeedbackModal from "../components/FeedbackModal";
 import LiveLocationBar from "../components/LiveLocationBar";
+import { type EarningsData, Variant_cod_online } from "../hooks/useQueries";
 import { useCallerProfile, useEarnings } from "../hooks/useQueries";
 
 const MOCK_EARNINGS: (EarningsData & { orderId: string })[] = [

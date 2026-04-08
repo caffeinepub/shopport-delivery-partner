@@ -2,18 +2,45 @@ import Map "mo:core/Map";
 import List "mo:core/List";
 import Time "mo:core/Time";
 import Runtime "mo:core/Runtime";
-import Iter "mo:core/Iter";
-import Array "mo:core/Array";
-import Blob "mo:core/Blob";
-import Text "mo:core/Text";
-import Order "mo:core/Order";
 import Principal "mo:core/Principal";
-import MixinStorage "blob-storage/Mixin";
-import Storage "blob-storage/Storage";
-import MixinAuthorization "authorization/MixinAuthorization";
-import AccessControl "authorization/access-control";
+import Migration "migration";
 
+(with migration = Migration.run)
 actor {
+  // Simple document/blob reference type (replaces blob-storage ExternalBlob)
+  public type DocumentRef = Migration.DocumentRef;
+
+  // Simple access control: track admins and registered users
+  let adminSet = Map.empty<Principal, Bool>();
+  let userSet = Map.empty<Principal, Bool>();
+
+  func isAdmin(caller : Principal) : Bool {
+    switch (adminSet.get(caller)) {
+      case (?true) { true };
+      case (_) { false };
+    };
+  };
+
+  func isUser(caller : Principal) : Bool {
+    switch (userSet.get(caller)) {
+      case (?true) { true };
+      case (_) { false };
+    };
+  };
+
+  // Grant admin role (bootstrapped: first caller or existing admin)
+  public shared ({ caller }) func grantAdmin(target : Principal) : async () {
+    if (adminSet.size() > 0 and not isAdmin(caller)) {
+      Runtime.trap("Unauthorized: Only admins can grant admin role");
+    };
+    adminSet.add(target, true);
+  };
+
+  // Register as user
+  public shared ({ caller }) func registerUser() : async () {
+    userSet.add(caller, true);
+  };
+
   module PartnerProfile {
     type VehicleType = {
       #bike;
@@ -34,7 +61,7 @@ actor {
       vehicleType : VehicleType;
       status : Status;
       rating : Float;
-      documents : [Storage.ExternalBlob];
+      documents : [DocumentRef];
       createdAt : Time.Time;
     };
 
@@ -98,11 +125,6 @@ actor {
 
     public type OrderDataIdentifier = Text;
   };
-  include MixinStorage();
-
-  // Use access control module for authorization
-  let accessControlState = AccessControl.initState();
-  include MixinAuthorization(accessControlState);
 
   let partnersMap = Map.empty<PartnerProfile.PartnerDataIdentifier, PartnerProfile.PartnerData>();
   let ordersMap = Map.empty<Order.OrderDataIdentifier, Order.OrderData>();
@@ -125,51 +147,48 @@ actor {
   let userProfiles = Map.empty<Principal, UserProfile>();
 
   public query ({ caller }) func getCallerUserProfile() : async ?UserProfile {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+    if (not isUser(caller) and not isAdmin(caller)) {
       Runtime.trap("Unauthorized: Only users can access profiles");
     };
     userProfiles.get(caller);
   };
 
   public query ({ caller }) func getUserProfile(user : Principal) : async ?UserProfile {
-    if (caller != user and not AccessControl.isAdmin(accessControlState, caller)) {
+    if (caller != user and not isAdmin(caller)) {
       Runtime.trap("Unauthorized: Can only view your own profile");
     };
     userProfiles.get(user);
   };
 
   public shared ({ caller }) func saveCallerUserProfile(profile : UserProfile) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can save profiles");
-    };
+    userSet.add(caller, true);
     userProfiles.add(caller, profile);
     principalToPartnerMap.add(caller, profile.partnerId);
   };
 
   public shared ({ caller }) func addPartner(profile : PartnerProfile.PartnerData) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+    if (not isAdmin(caller)) {
       Runtime.trap("Unauthorized: Only admins can add partners");
     };
     partnersMap.add(profile.id, profile);
   };
 
-  public shared ({ caller }) func updatePartnerDocuments(partnerId : PartnerProfile.PartnerDataIdentifier, newDocuments : [Storage.ExternalBlob]) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+  public shared ({ caller }) func updatePartnerDocuments(partnerId : PartnerProfile.PartnerDataIdentifier, newDocuments : [DocumentRef]) : async () {
+    if (not isUser(caller) and not isAdmin(caller)) {
       Runtime.trap("Unauthorized: Only users can update documents");
     };
 
-    // Check if caller is the partner or admin
     let callerPartnerId = principalToPartnerMap.get(caller);
-    let isAdmin = AccessControl.isAdmin(accessControlState, caller);
-    
+    let adminCaller = isAdmin(caller);
+
     switch (callerPartnerId) {
       case (?pid) {
-        if (pid != partnerId and not isAdmin) {
+        if (pid != partnerId and not adminCaller) {
           Runtime.trap("Unauthorized: Can only update your own documents");
         };
       };
       case (null) {
-        if (not isAdmin) {
+        if (not adminCaller) {
           Runtime.trap("Unauthorized: Partner ID not found for caller");
         };
       };
@@ -187,22 +206,21 @@ actor {
   };
 
   public query ({ caller }) func getPartner(partnerId : PartnerProfile.PartnerDataIdentifier) : async PartnerProfile.PartnerData {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+    if (not isUser(caller) and not isAdmin(caller)) {
       Runtime.trap("Unauthorized: Only users can view partner profiles");
     };
 
-    // Check if caller is the partner or admin
     let callerPartnerId = principalToPartnerMap.get(caller);
-    let isAdmin = AccessControl.isAdmin(accessControlState, caller);
-    
+    let adminCaller = isAdmin(caller);
+
     switch (callerPartnerId) {
       case (?pid) {
-        if (pid != partnerId and not isAdmin) {
+        if (pid != partnerId and not adminCaller) {
           Runtime.trap("Unauthorized: Can only view your own profile");
         };
       };
       case (null) {
-        if (not isAdmin) {
+        if (not adminCaller) {
           Runtime.trap("Unauthorized: Partner ID not found for caller");
         };
       };
@@ -215,14 +233,14 @@ actor {
   };
 
   public query ({ caller }) func getAllPartners() : async [PartnerProfile.PartnerData] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+    if (not isAdmin(caller)) {
       Runtime.trap("Unauthorized: Only admins can view all partners");
     };
     partnersMap.values().toArray();
   };
 
   public shared ({ caller }) func addEarnings(earnings : Earnings.EarningsData) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+    if (not isAdmin(caller)) {
       Runtime.trap("Unauthorized: Only admins can add earnings");
     };
     let id = nextEarningId;
@@ -231,41 +249,37 @@ actor {
   };
 
   public query ({ caller }) func getEarnings(partnerId : Text) : async [Earnings.EarningsData] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+    if (not isUser(caller) and not isAdmin(caller)) {
       Runtime.trap("Unauthorized: Only users can view earnings");
     };
 
-    // Check if caller is the partner or admin
     let callerPartnerId = principalToPartnerMap.get(caller);
-    let isAdmin = AccessControl.isAdmin(accessControlState, caller);
-    
+    let adminCaller = isAdmin(caller);
+
     switch (callerPartnerId) {
       case (?pid) {
-        if (pid != partnerId and not isAdmin) {
+        if (pid != partnerId and not adminCaller) {
           Runtime.trap("Unauthorized: Can only view your own earnings");
         };
       };
       case (null) {
-        if (not isAdmin) {
+        if (not adminCaller) {
           Runtime.trap("Unauthorized: Partner ID not found for caller");
         };
       };
     };
 
-    let earningsIter = earningsMap.values();
     let filtered = List.empty<Earnings.EarningsData>();
-
-    for (earning in earningsIter) {
+    for (earning in earningsMap.values()) {
       if (earning.partnerId == partnerId) {
         filtered.add(earning);
       };
     };
-
     filtered.toArray();
   };
 
   public shared ({ caller }) func addCancellation(cancellation : Cancellation.CancellationData) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+    if (not isAdmin(caller)) {
       Runtime.trap("Unauthorized: Only admins can add cancellations");
     };
     let id = nextCancellationId;
@@ -274,41 +288,37 @@ actor {
   };
 
   public query ({ caller }) func getCancellations(partnerId : Text) : async [Cancellation.CancellationData] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+    if (not isUser(caller) and not isAdmin(caller)) {
       Runtime.trap("Unauthorized: Only users can view cancellations");
     };
 
-    // Check if caller is the partner or admin
     let callerPartnerId = principalToPartnerMap.get(caller);
-    let isAdmin = AccessControl.isAdmin(accessControlState, caller);
-    
+    let adminCaller = isAdmin(caller);
+
     switch (callerPartnerId) {
       case (?pid) {
-        if (pid != partnerId and not isAdmin) {
+        if (pid != partnerId and not adminCaller) {
           Runtime.trap("Unauthorized: Can only view your own cancellations");
         };
       };
       case (null) {
-        if (not isAdmin) {
+        if (not adminCaller) {
           Runtime.trap("Unauthorized: Partner ID not found for caller");
         };
       };
     };
 
-    let cancellationsIter = cancellationsMap.values();
     let filtered = List.empty<Cancellation.CancellationData>();
-
-    for (cancellation in cancellationsIter) {
+    for (cancellation in cancellationsMap.values()) {
       if (cancellation.partnerId == partnerId) {
         filtered.add(cancellation);
       };
     };
-
     filtered.toArray();
   };
 
   public shared ({ caller }) func addReturn(returnData : Return.ReturnData) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+    if (not isAdmin(caller)) {
       Runtime.trap("Unauthorized: Only admins can add returns");
     };
     let id = nextReturnId;
@@ -317,41 +327,37 @@ actor {
   };
 
   public query ({ caller }) func getReturns(partnerId : Text) : async [Return.ReturnData] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+    if (not isUser(caller) and not isAdmin(caller)) {
       Runtime.trap("Unauthorized: Only users can view returns");
     };
 
-    // Check if caller is the partner or admin
     let callerPartnerId = principalToPartnerMap.get(caller);
-    let isAdmin = AccessControl.isAdmin(accessControlState, caller);
-    
+    let adminCaller = isAdmin(caller);
+
     switch (callerPartnerId) {
       case (?pid) {
-        if (pid != partnerId and not isAdmin) {
+        if (pid != partnerId and not adminCaller) {
           Runtime.trap("Unauthorized: Can only view your own returns");
         };
       };
       case (null) {
-        if (not isAdmin) {
+        if (not adminCaller) {
           Runtime.trap("Unauthorized: Partner ID not found for caller");
         };
       };
     };
 
-    let returnsIter = returnsMap.values();
     let filtered = List.empty<Return.ReturnData>();
-
-    for (returnItem in returnsIter) {
+    for (returnItem in returnsMap.values()) {
       if (returnItem.partnerId == partnerId) {
         filtered.add(returnItem);
       };
     };
-
     filtered.toArray();
   };
 
   public shared ({ caller }) func addOrder(orderData : Order.OrderData) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+    if (not isAdmin(caller)) {
       Runtime.trap("Unauthorized: Only admins can add orders");
     };
     var orderId = orderData.id;
@@ -370,44 +376,40 @@ actor {
   };
 
   public query ({ caller }) func getAvailableOrders() : async [Order.OrderData] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+    if (not isUser(caller) and not isAdmin(caller)) {
       Runtime.trap("Unauthorized: Only users can view available orders");
     };
 
-    let ordersIter = ordersMap.values();
     let filtered = List.empty<Order.OrderData>();
-
-    for (orderItem in ordersIter) {
+    for (orderItem in ordersMap.values()) {
       if (orderItem.status == #accepted) {
         filtered.add(orderItem);
       };
     };
-
     filtered.toArray();
   };
 
   public query ({ caller }) func getOrder(orderId : Order.OrderDataIdentifier) : async Order.OrderData {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+    if (not isUser(caller) and not isAdmin(caller)) {
       Runtime.trap("Unauthorized: Only users can view orders");
     };
 
     let order = switch (ordersMap.get(orderId)) {
-      case (?order) { order };
+      case (?o) { o };
       case (null) { Runtime.trap("Order not found") };
     };
 
-    // Check if caller is the partner assigned to this order or admin
     let callerPartnerId = principalToPartnerMap.get(caller);
-    let isAdmin = AccessControl.isAdmin(accessControlState, caller);
-    
+    let adminCaller = isAdmin(caller);
+
     switch (callerPartnerId) {
       case (?pid) {
-        if (order.partnerId != pid and not isAdmin) {
+        if (order.partnerId != pid and not adminCaller) {
           Runtime.trap("Unauthorized: Can only view your own orders");
         };
       };
       case (null) {
-        if (not isAdmin) {
+        if (not adminCaller) {
           Runtime.trap("Unauthorized: Partner ID not found for caller");
         };
       };
@@ -417,61 +419,56 @@ actor {
   };
 
   public query ({ caller }) func getPartnerOrders(partnerId : Text) : async [Order.OrderData] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+    if (not isUser(caller) and not isAdmin(caller)) {
       Runtime.trap("Unauthorized: Only users can view orders");
     };
 
-    // Check if caller is the partner or admin
     let callerPartnerId = principalToPartnerMap.get(caller);
-    let isAdmin = AccessControl.isAdmin(accessControlState, caller);
-    
+    let adminCaller = isAdmin(caller);
+
     switch (callerPartnerId) {
       case (?pid) {
-        if (pid != partnerId and not isAdmin) {
+        if (pid != partnerId and not adminCaller) {
           Runtime.trap("Unauthorized: Can only view your own orders");
         };
       };
       case (null) {
-        if (not isAdmin) {
+        if (not adminCaller) {
           Runtime.trap("Unauthorized: Partner ID not found for caller");
         };
       };
     };
 
-    let ordersIter = ordersMap.values();
     let filtered = List.empty<Order.OrderData>();
-
-    for (orderItem in ordersIter) {
+    for (orderItem in ordersMap.values()) {
       if (orderItem.partnerId == partnerId) {
         filtered.add(orderItem);
       };
     };
-
     filtered.toArray();
   };
 
   public shared ({ caller }) func updateOrderStatus(orderId : Order.OrderDataIdentifier, newStatus : Order.OrderStatus) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+    if (not isUser(caller) and not isAdmin(caller)) {
       Runtime.trap("Unauthorized: Only users can update order status");
     };
 
     let current = switch (ordersMap.get(orderId)) {
-      case (?order) { order };
+      case (?o) { o };
       case (null) { Runtime.trap("Order not found") };
     };
 
-    // Check if caller is the partner assigned to this order or admin
     let callerPartnerId = principalToPartnerMap.get(caller);
-    let isAdmin = AccessControl.isAdmin(accessControlState, caller);
-    
+    let adminCaller = isAdmin(caller);
+
     switch (callerPartnerId) {
       case (?pid) {
-        if (current.partnerId != pid and not isAdmin) {
+        if (current.partnerId != pid and not adminCaller) {
           Runtime.trap("Unauthorized: Can only update your own orders");
         };
       };
       case (null) {
-        if (not isAdmin) {
+        if (not adminCaller) {
           Runtime.trap("Unauthorized: Partner ID not found for caller");
         };
       };
@@ -485,14 +482,12 @@ actor {
   };
 
   public query ({ caller }) func getOrderCountByType() : async [(Text, Nat)] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+    if (not isAdmin(caller)) {
       Runtime.trap("Unauthorized: Only admins can view analytics");
     };
 
-    let ordersIter = ordersMap.values();
     let aggregateMap = Map.empty<Text, Nat>();
-
-    for (order in ordersIter) {
+    for (order in ordersMap.values()) {
       let count = switch (aggregateMap.get(order.orderType)) {
         case (null) { 0 };
         case (?existing) { existing };

@@ -1,0 +1,194 @@
+// Version: 3.0.0
+type CancellationDataIdentifier__317853136 = Nat;
+type CancellationData__45806551 =
+  {
+    charge : Float;
+    createdAt : Time__900049286;
+    orderId : Text;
+    partnerId : Text;
+    reason : Text
+  };
+type Data__791452850<K, V> =
+  {var count : Nat__490723111; kvs : [var ?(K, V)]};
+type DocumentRef__204215495 = DocumentRef__341437213;
+type DocumentRef__341437213 =
+  {contentType : Text; id : Text; name : Text; url : Text};
+type EarningsDataIdentifier__232838580 = Nat;
+type EarningsData__700889172 =
+  {
+    amount : Float;
+    createdAt : Time__900049286;
+    partnerId : Text;
+    paymentType : {#cod; #online}
+  };
+type Int__270357528 = Int__616954475;
+type Int__616954475 = Int;
+type Internal__8484328<K, V> =
+  {children : [var ?Node__46230540<K, V>]; data : Data__791452850<K, V>};
+type Leaf__809889148<K, V> = {data : Data__791452850<K, V>};
+type Map__158565046<K, V> = Map__297112838<K, V>;
+type Map__297112838<K, V> =
+  {var root : Node__46230540<K, V>; var size : Nat__490723111};
+type Map__605269027<K, V> = Map__158565046<K, V>;
+type Nat__490723111 = Nat__920180692;
+type Nat__920180692 = Nat;
+type Node__46230540<K, V> =
+  {#internal : Internal__8484328<K, V>; #leaf : Leaf__809889148<K, V>};
+type OldAccessControlState__841599830 =
+  {
+    var adminAssigned : Bool;
+    userRoles : Map__605269027<Principal, OldUserRole__889293160>
+  };
+type OldCancellationData__351132184 =
+  {
+    charge : Float;
+    createdAt : Int;
+    orderId : Text;
+    partnerId : Text;
+    reason : Text
+  };
+type OldEarningsData__407045023 =
+  {
+    amount : Float;
+    createdAt : Int;
+    partnerId : Text;
+    paymentType : OldPaymentType__1021648224
+  };
+type OldOrderData__308321461 =
+  {
+    charges : Float;
+    createdAt : Int;
+    id : Text;
+    orderType : Text;
+    partnerId : Text;
+    status : OldOrderStatus__13175761;
+    updatedAt : Int
+  };
+type OldOrderStatus__13175761 =
+  {#accepted; #cancelled; #delivered; #outForDelivery; #pickedUp; #returned};
+type OldPartnerData__265499765 =
+  {
+    createdAt : Int;
+    documents : [Blob];
+    id : Text;
+    name : Text;
+    phone : Text;
+    rating : Float;
+    status : OldStatus__155413022;
+    vehicleType : OldVehicleType__389435927
+  };
+type OldPaymentType__1021648224 = {#cod; #online};
+type OldReturnData__797607174 =
+  {
+    charge : Float;
+    createdAt : Int;
+    orderId : Text;
+    partnerId : Text;
+    reason : Text
+  };
+type OldStatus__155413022 = {#active; #inactive};
+type OldUserProfile__416069324 = {name : Text; partnerId : Text};
+type OldUserRole__889293160 = {#admin; #guest; #user};
+type OldVehicleType__389435927 = {#bike; #car; #truck; #van};
+type OrderDataIdentifier__763840706 = Text;
+type OrderData__98954728 =
+  {
+    charges : Float;
+    createdAt : Time__900049286;
+    id : Text;
+    orderType : Text;
+    partnerId : Text;
+    status : OrderStatus__838108808;
+    updatedAt : Time__900049286
+  };
+type OrderStatus__838108808 =
+  {#accepted; #cancelled; #delivered; #outForDelivery; #pickedUp; #returned};
+type PartnerDataIdentifier__857393618 = Text;
+type PartnerData__469233461 =
+  {
+    createdAt : Time__900049286;
+    documents : [DocumentRef__204215495];
+    id : Text;
+    name : Text;
+    phone : Text;
+    rating : Float;
+    status : Status__1000080315;
+    vehicleType : VehicleType__174430556
+  };
+type ReturnDataIdentifier__413344703 = Nat;
+type ReturnData__779471505 =
+  {
+    charge : Float;
+    createdAt : Time__900049286;
+    orderId : Text;
+    partnerId : Text;
+    reason : Text
+  };
+type Status__1000080315 = {#active; #inactive};
+type Time__796480547 = Int__270357528;
+type Time__900049286 = Time__796480547;
+type UserProfile__491224006 = {name : Text; partnerId : Text};
+type VehicleType__174430556 = {#bike; #car; #truck; #van};
+actor ({
+  in accessControlState : OldAccessControlState__841599830;
+  in cancellationsMap : Map__605269027<Nat, OldCancellationData__351132184>;
+  in earningsMap : Map__605269027<Nat, OldEarningsData__407045023>;
+  in var globalOrderId : Nat;
+  in var nextCancellationId : Nat;
+  in var nextEarningId : Nat;
+  in var nextReturnId : Nat;
+  in ordersMap : Map__605269027<Text, OldOrderData__308321461>;
+  in partnersMap : Map__605269027<Text, OldPartnerData__265499765>;
+  in principalToPartnerMap : Map__605269027<Principal, Text>;
+  in returnsMap : Map__605269027<Nat, OldReturnData__797607174>;
+  in userProfiles : Map__605269027<Principal, OldUserProfile__416069324>
+}, {
+  stable adminSet :
+    {var root : Node__46230540<Principal, Bool>; var size : Nat__490723111};
+  stable cancellationsMap :
+    {
+      var root :
+        Node__46230540<CancellationDataIdentifier__317853136,
+                        CancellationData__45806551>;
+      var size : Nat__490723111
+    };
+  stable earningsMap :
+    {
+      var root :
+        Node__46230540<EarningsDataIdentifier__232838580,
+                        EarningsData__700889172>;
+      var size : Nat__490723111
+    };
+  stable var globalOrderId : Nat;
+  stable var nextCancellationId : Nat;
+  stable var nextEarningId : Nat;
+  stable var nextReturnId : Nat;
+  stable ordersMap :
+    {
+      var root :
+        Node__46230540<OrderDataIdentifier__763840706, OrderData__98954728>;
+      var size : Nat__490723111
+    };
+  stable partnersMap :
+    {
+      var root :
+        Node__46230540<PartnerDataIdentifier__857393618,
+                        PartnerData__469233461>;
+      var size : Nat__490723111
+    };
+  stable principalToPartnerMap :
+    {var root : Node__46230540<Principal, Text>; var size : Nat__490723111};
+  stable returnsMap :
+    {
+      var root :
+        Node__46230540<ReturnDataIdentifier__413344703, ReturnData__779471505>;
+      var size : Nat__490723111
+    };
+  stable userProfiles :
+    {
+      var root : Node__46230540<Principal, UserProfile__491224006>;
+      var size : Nat__490723111
+    };
+  stable userSet :
+    {var root : Node__46230540<Principal, Bool>; var size : Nat__490723111}
+}) ;

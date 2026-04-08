@@ -28,10 +28,13 @@ import {
 import { motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { OrderStatus, Variant_cod_online } from "../backend";
-import type { OrderData } from "../backend";
 import FeedbackModal from "../components/FeedbackModal";
 import LiveMap from "../components/LiveMap";
+import {
+  type OrderData,
+  OrderStatus,
+  Variant_cod_online,
+} from "../hooks/useQueries";
 import {
   useAvailableOrders,
   useCallerProfile,

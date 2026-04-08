@@ -28,9 +28,9 @@ import {
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { OrderStatus, Variant_cod_online } from "../backend";
 import FeedbackModal from "../components/FeedbackModal";
 import LiveMap from "../components/LiveMap";
+import { OrderStatus, Variant_cod_online } from "../hooks/useQueries";
 import {
   useAddCancellation,
   useCallerProfile,

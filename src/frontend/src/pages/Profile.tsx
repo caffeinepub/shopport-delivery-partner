@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { useInternetIdentity } from "@caffeineai/core-infrastructure";
 import { useRouter } from "@tanstack/react-router";
 import {
   Car,
@@ -12,14 +13,15 @@ import {
   LogOut,
   MapPin,
   MessageSquare,
+  Settings,
   Shield,
   Star,
   User,
+  Zap,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useState } from "react";
 import FeedbackModal from "../components/FeedbackModal";
-import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import { useCallerProfile } from "../hooks/useQueries";
 import { getUserProfile } from "../lib/userStore";
 
@@ -55,6 +57,8 @@ export default function Profile() {
   const name = storedProfile.name ?? profile?.name ?? "Delivery Partner";
   const partnerId = profile?.partnerId ?? "SP-001";
   const storedVehicle = storedProfile.vehicleType ?? "Bike";
+  const storedVehicleNumber = storedProfile.vehicleNumber;
+  const storedFuelType = storedProfile.fuelType;
   const initials = name
     .split(" ")
     .map((n: string) => n[0])
@@ -124,7 +128,28 @@ export default function Profile() {
               <span className="text-foreground capitalize">
                 {storedVehicle}
               </span>
+              {storedFuelType && (
+                <Badge
+                  variant="outline"
+                  className="text-xs border-primary/40 text-primary ml-1"
+                >
+                  <Zap size={10} className="mr-1" />
+                  {storedFuelType}
+                </Badge>
+              )}
             </div>
+            {storedVehicleNumber && (
+              <div className="flex items-center gap-3 text-sm">
+                <Car
+                  size={16}
+                  className="text-muted-foreground flex-shrink-0 opacity-0"
+                />
+                <span className="text-muted-foreground">Reg. No:</span>
+                <span className="font-mono text-xs text-foreground tracking-wider">
+                  {storedVehicleNumber}
+                </span>
+              </div>
+            )}
           </div>
         </motion.div>
 
@@ -256,6 +281,24 @@ export default function Profile() {
               <p className="text-sm font-semibold">Edit Profile</p>
               <p className="text-xs text-muted-foreground">
                 Update your personal details & documents
+              </p>
+            </div>
+            <ChevronRight size={16} className="text-muted-foreground" />
+          </button>
+          <Separator className="bg-border mx-4" />
+          <button
+            type="button"
+            data-ocid="profile.settings_button"
+            onClick={() => router.navigate({ to: "/profile/edit" })}
+            className="w-full flex items-center gap-4 px-4 py-4 hover:bg-muted/50 transition-colors"
+          >
+            <div className="w-10 h-10 bg-muted rounded-xl flex items-center justify-center flex-shrink-0">
+              <Settings size={18} className="text-muted-foreground" />
+            </div>
+            <div className="flex-1 text-left">
+              <p className="text-sm font-semibold">Settings</p>
+              <p className="text-xs text-muted-foreground">
+                Vehicle, fuel type & app preferences
               </p>
             </div>
             <ChevronRight size={16} className="text-muted-foreground" />

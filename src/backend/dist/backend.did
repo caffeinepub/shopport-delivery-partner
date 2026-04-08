@@ -1,0 +1,111 @@
+type VehicleType = 
+ variant {
+   bike;
+   car;
+   truck;
+   van;
+ };
+type UserProfile = 
+ record {
+   name: text;
+   partnerId: text;
+ };
+type Time = int;
+type Status = 
+ variant {
+   active;
+   inactive;
+ };
+type ReturnData = 
+ record {
+   charge: float64;
+   createdAt: Time;
+   orderId: text;
+   partnerId: text;
+   reason: text;
+ };
+type PartnerDataIdentifier = text;
+type PartnerData = 
+ record {
+   createdAt: Time;
+   documents: vec DocumentRef;
+   id: text;
+   name: text;
+   phone: text;
+   rating: float64;
+   status: Status;
+   vehicleType: VehicleType;
+ };
+type OrderStatus = 
+ variant {
+   accepted;
+   cancelled;
+   delivered;
+   outForDelivery;
+   pickedUp;
+   returned;
+ };
+type OrderDataIdentifier = text;
+type OrderData = 
+ record {
+   charges: float64;
+   createdAt: Time;
+   id: text;
+   orderType: text;
+   partnerId: text;
+   status: OrderStatus;
+   updatedAt: Time;
+ };
+type EarningsData = 
+ record {
+   amount: float64;
+   createdAt: Time;
+   partnerId: text;
+   paymentType: variant {
+                  cod;
+                  online;
+                };
+ };
+type DocumentRef = 
+ record {
+   contentType: text;
+   id: text;
+   name: text;
+   url: text;
+ };
+type CancellationData = 
+ record {
+   charge: float64;
+   createdAt: Time;
+   orderId: text;
+   partnerId: text;
+   reason: text;
+ };
+service : {
+  addCancellation: (cancellation: CancellationData) -> ();
+  addEarnings: (earnings: EarningsData) -> ();
+  addOrder: (orderData: OrderData) -> ();
+  addPartner: (profile: PartnerData) -> ();
+  addReturn: (returnData: ReturnData) -> ();
+  getAllPartners: () -> (vec PartnerData) query;
+  getAvailableOrders: () -> (vec OrderData) query;
+  getCallerUserProfile: () -> (opt UserProfile) query;
+  getCancellations: (partnerId: text) -> (vec CancellationData) query;
+  getEarnings: (partnerId: text) -> (vec EarningsData) query;
+  getOrder: (orderId: OrderDataIdentifier) -> (OrderData) query;
+  getOrderCountByType: () -> (vec record {
+                                    text;
+                                    nat;
+                                  }) query;
+  getPartner: (partnerId: PartnerDataIdentifier) -> (PartnerData) query;
+  getPartnerOrders: (partnerId: text) -> (vec OrderData) query;
+  getReturns: (partnerId: text) -> (vec ReturnData) query;
+  getUserProfile: (user: principal) -> (opt UserProfile) query;
+  grantAdmin: (target: principal) -> ();
+  registerUser: () -> ();
+  saveCallerUserProfile: (profile: UserProfile) -> ();
+  updateOrderStatus: (orderId: OrderDataIdentifier, newStatus:
+   OrderStatus) -> ();
+  updatePartnerDocuments: (partnerId: PartnerDataIdentifier, newDocuments:
+   vec DocumentRef) -> ();
+}

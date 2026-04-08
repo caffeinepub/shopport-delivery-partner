@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useInternetIdentity } from "@caffeineai/core-infrastructure";
 import { useRouter } from "@tanstack/react-router";
 import {
   ArrowLeft,
@@ -34,7 +35,6 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import FeedbackModal from "../components/FeedbackModal";
 import LiveMap from "../components/LiveMap";
-import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import { useCallerProfile, useSaveProfile } from "../hooks/useQueries";
 import { setUserProfile } from "../lib/userStore";
 
@@ -381,6 +381,8 @@ export default function Auth() {
   const [name, setName] = useState("");
   const [gender, setGender] = useState<"male" | "female" | "">("");
   const [vehicleType, setVehicleType] = useState("");
+  const [vehicleNumber, setVehicleNumber] = useState("");
+  const [fuelType, setFuelType] = useState("");
   const [handicap, setHandicap] = useState<"yes" | "no" | "">("");
   const [houseStreet, setHouseStreet] = useState("");
   const [city, setCity] = useState("");
@@ -536,6 +538,8 @@ export default function Auth() {
       name: name.trim(),
       gender,
       vehicleType,
+      vehicleNumber: vehicleNumber.trim() || undefined,
+      fuelType: fuelType || undefined,
       phone: `${countryCode} ${phone}`,
       address: [houseStreet, city, district, state, country]
         .filter(Boolean)
@@ -989,7 +993,10 @@ export default function Auth() {
                     <button
                       key={id}
                       type="button"
-                      onClick={() => setVehicleType(id)}
+                      onClick={() => {
+                        setVehicleType(id);
+                        setFuelType("");
+                      }}
                       className={`flex flex-col items-center gap-1 py-3 rounded-xl border text-xs font-medium transition-colors ${
                         vehicleType === id
                           ? "bg-primary/20 border-primary text-primary"
@@ -1002,6 +1009,46 @@ export default function Auth() {
                   ))}
                 </div>
               </div>
+
+              {/* Vehicle Number + Fuel Type — only for Bike or Car */}
+              {(vehicleType === "bike" || vehicleType === "car") && (
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <Label>Vehicle Number</Label>
+                    <Input
+                      data-ocid="auth.vehicle_number_input"
+                      placeholder="e.g. MH12AB1234"
+                      value={vehicleNumber}
+                      onChange={(e) =>
+                        setVehicleNumber(e.target.value.toUpperCase())
+                      }
+                      className="bg-card border-border font-mono tracking-wider"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Fuel Type</Label>
+                    <div className="flex gap-2">
+                      {(vehicleType === "bike"
+                        ? ["Oil", "Electric"]
+                        : ["Petrol", "Diesel", "Electric"]
+                      ).map((ft) => (
+                        <button
+                          key={ft}
+                          type="button"
+                          onClick={() => setFuelType(ft)}
+                          className={`flex-1 py-2.5 rounded-xl border text-sm font-semibold transition-colors ${
+                            fuelType === ft
+                              ? "bg-primary/20 border-primary text-primary"
+                              : "bg-card border-border text-muted-foreground hover:border-primary/50"
+                          }`}
+                        >
+                          {ft}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Physical Handicap */}
               <div className="space-y-1">

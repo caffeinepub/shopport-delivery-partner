@@ -8,17 +8,6 @@
 
 import { IDL } from '@icp-sdk/core/candid';
 
-export const _CaffeineStorageCreateCertificateResult = IDL.Record({
-  'method' : IDL.Text,
-  'blob_hash' : IDL.Text,
-});
-export const _CaffeineStorageRefillInformation = IDL.Record({
-  'proposed_top_up_amount' : IDL.Opt(IDL.Nat),
-});
-export const _CaffeineStorageRefillResult = IDL.Record({
-  'success' : IDL.Opt(IDL.Bool),
-  'topped_up_amount' : IDL.Opt(IDL.Nat),
-});
 export const Time = IDL.Int;
 export const CancellationData = IDL.Record({
   'createdAt' : Time,
@@ -60,12 +49,17 @@ export const VehicleType = IDL.Variant({
   'truck' : IDL.Null,
   'bike' : IDL.Null,
 });
-export const ExternalBlob = IDL.Vec(IDL.Nat8);
+export const DocumentRef = IDL.Record({
+  'id' : IDL.Text,
+  'url' : IDL.Text,
+  'contentType' : IDL.Text,
+  'name' : IDL.Text,
+});
 export const PartnerData = IDL.Record({
   'id' : IDL.Text,
   'status' : Status,
   'vehicleType' : VehicleType,
-  'documents' : IDL.Vec(ExternalBlob),
+  'documents' : IDL.Vec(DocumentRef),
   'name' : IDL.Text,
   'createdAt' : Time,
   'rating' : IDL.Float64,
@@ -78,11 +72,6 @@ export const ReturnData = IDL.Record({
   'charge' : IDL.Float64,
   'reason' : IDL.Text,
 });
-export const UserRole = IDL.Variant({
-  'admin' : IDL.Null,
-  'user' : IDL.Null,
-  'guest' : IDL.Null,
-});
 export const UserProfile = IDL.Record({
   'name' : IDL.Text,
   'partnerId' : IDL.Text,
@@ -91,43 +80,14 @@ export const OrderDataIdentifier = IDL.Text;
 export const PartnerDataIdentifier = IDL.Text;
 
 export const idlService = IDL.Service({
-  '_caffeineStorageBlobIsLive' : IDL.Func(
-      [IDL.Vec(IDL.Nat8)],
-      [IDL.Bool],
-      ['query'],
-    ),
-  '_caffeineStorageBlobsToDelete' : IDL.Func(
-      [],
-      [IDL.Vec(IDL.Vec(IDL.Nat8))],
-      ['query'],
-    ),
-  '_caffeineStorageConfirmBlobDeletion' : IDL.Func(
-      [IDL.Vec(IDL.Vec(IDL.Nat8))],
-      [],
-      [],
-    ),
-  '_caffeineStorageCreateCertificate' : IDL.Func(
-      [IDL.Text],
-      [_CaffeineStorageCreateCertificateResult],
-      [],
-    ),
-  '_caffeineStorageRefillCashier' : IDL.Func(
-      [IDL.Opt(_CaffeineStorageRefillInformation)],
-      [_CaffeineStorageRefillResult],
-      [],
-    ),
-  '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
-  '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
   'addCancellation' : IDL.Func([CancellationData], [], []),
   'addEarnings' : IDL.Func([EarningsData], [], []),
   'addOrder' : IDL.Func([OrderData], [], []),
   'addPartner' : IDL.Func([PartnerData], [], []),
   'addReturn' : IDL.Func([ReturnData], [], []),
-  'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
   'getAllPartners' : IDL.Func([], [IDL.Vec(PartnerData)], ['query']),
   'getAvailableOrders' : IDL.Func([], [IDL.Vec(OrderData)], ['query']),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
-  'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
   'getCancellations' : IDL.Func(
       [IDL.Text],
       [IDL.Vec(CancellationData)],
@@ -148,11 +108,12 @@ export const idlService = IDL.Service({
       [IDL.Opt(UserProfile)],
       ['query'],
     ),
-  'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
+  'grantAdmin' : IDL.Func([IDL.Principal], [], []),
+  'registerUser' : IDL.Func([], [], []),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
   'updateOrderStatus' : IDL.Func([OrderDataIdentifier, OrderStatus], [], []),
   'updatePartnerDocuments' : IDL.Func(
-      [PartnerDataIdentifier, IDL.Vec(ExternalBlob)],
+      [PartnerDataIdentifier, IDL.Vec(DocumentRef)],
       [],
       [],
     ),
@@ -161,17 +122,6 @@ export const idlService = IDL.Service({
 export const idlInitArgs = [];
 
 export const idlFactory = ({ IDL }) => {
-  const _CaffeineStorageCreateCertificateResult = IDL.Record({
-    'method' : IDL.Text,
-    'blob_hash' : IDL.Text,
-  });
-  const _CaffeineStorageRefillInformation = IDL.Record({
-    'proposed_top_up_amount' : IDL.Opt(IDL.Nat),
-  });
-  const _CaffeineStorageRefillResult = IDL.Record({
-    'success' : IDL.Opt(IDL.Bool),
-    'topped_up_amount' : IDL.Opt(IDL.Nat),
-  });
   const Time = IDL.Int;
   const CancellationData = IDL.Record({
     'createdAt' : Time,
@@ -210,12 +160,17 @@ export const idlFactory = ({ IDL }) => {
     'truck' : IDL.Null,
     'bike' : IDL.Null,
   });
-  const ExternalBlob = IDL.Vec(IDL.Nat8);
+  const DocumentRef = IDL.Record({
+    'id' : IDL.Text,
+    'url' : IDL.Text,
+    'contentType' : IDL.Text,
+    'name' : IDL.Text,
+  });
   const PartnerData = IDL.Record({
     'id' : IDL.Text,
     'status' : Status,
     'vehicleType' : VehicleType,
-    'documents' : IDL.Vec(ExternalBlob),
+    'documents' : IDL.Vec(DocumentRef),
     'name' : IDL.Text,
     'createdAt' : Time,
     'rating' : IDL.Float64,
@@ -228,53 +183,19 @@ export const idlFactory = ({ IDL }) => {
     'charge' : IDL.Float64,
     'reason' : IDL.Text,
   });
-  const UserRole = IDL.Variant({
-    'admin' : IDL.Null,
-    'user' : IDL.Null,
-    'guest' : IDL.Null,
-  });
   const UserProfile = IDL.Record({ 'name' : IDL.Text, 'partnerId' : IDL.Text });
   const OrderDataIdentifier = IDL.Text;
   const PartnerDataIdentifier = IDL.Text;
   
   return IDL.Service({
-    '_caffeineStorageBlobIsLive' : IDL.Func(
-        [IDL.Vec(IDL.Nat8)],
-        [IDL.Bool],
-        ['query'],
-      ),
-    '_caffeineStorageBlobsToDelete' : IDL.Func(
-        [],
-        [IDL.Vec(IDL.Vec(IDL.Nat8))],
-        ['query'],
-      ),
-    '_caffeineStorageConfirmBlobDeletion' : IDL.Func(
-        [IDL.Vec(IDL.Vec(IDL.Nat8))],
-        [],
-        [],
-      ),
-    '_caffeineStorageCreateCertificate' : IDL.Func(
-        [IDL.Text],
-        [_CaffeineStorageCreateCertificateResult],
-        [],
-      ),
-    '_caffeineStorageRefillCashier' : IDL.Func(
-        [IDL.Opt(_CaffeineStorageRefillInformation)],
-        [_CaffeineStorageRefillResult],
-        [],
-      ),
-    '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
-    '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
     'addCancellation' : IDL.Func([CancellationData], [], []),
     'addEarnings' : IDL.Func([EarningsData], [], []),
     'addOrder' : IDL.Func([OrderData], [], []),
     'addPartner' : IDL.Func([PartnerData], [], []),
     'addReturn' : IDL.Func([ReturnData], [], []),
-    'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
     'getAllPartners' : IDL.Func([], [IDL.Vec(PartnerData)], ['query']),
     'getAvailableOrders' : IDL.Func([], [IDL.Vec(OrderData)], ['query']),
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
-    'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
     'getCancellations' : IDL.Func(
         [IDL.Text],
         [IDL.Vec(CancellationData)],
@@ -295,11 +216,12 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Opt(UserProfile)],
         ['query'],
       ),
-    'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
+    'grantAdmin' : IDL.Func([IDL.Principal], [], []),
+    'registerUser' : IDL.Func([], [], []),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
     'updateOrderStatus' : IDL.Func([OrderDataIdentifier, OrderStatus], [], []),
     'updatePartnerDocuments' : IDL.Func(
-        [PartnerDataIdentifier, IDL.Vec(ExternalBlob)],
+        [PartnerDataIdentifier, IDL.Vec(DocumentRef)],
         [],
         [],
       ),

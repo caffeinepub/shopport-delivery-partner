@@ -3,6 +3,8 @@ export interface UserProfile {
   name?: string;
   gender?: string;
   vehicleType?: string;
+  vehicleNumber?: string;
+  fuelType?: string;
   phone?: string;
   address?: string;
   aadhaarDoc?: string;

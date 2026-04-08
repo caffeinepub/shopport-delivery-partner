@@ -17,6 +17,12 @@ export interface CancellationData {
   'charge' : number,
   'reason' : string,
 }
+export interface DocumentRef {
+  'id' : string,
+  'url' : string,
+  'contentType' : string,
+  'name' : string,
+}
 export interface EarningsData {
   'createdAt' : Time,
   'partnerId' : string,
@@ -24,7 +30,6 @@ export interface EarningsData {
     { 'online' : null },
   'amount' : number,
 }
-export type ExternalBlob = Uint8Array;
 export interface OrderData {
   'id' : string,
   'status' : OrderStatus,
@@ -45,7 +50,7 @@ export interface PartnerData {
   'id' : string,
   'status' : Status,
   'vehicleType' : VehicleType,
-  'documents' : Array<ExternalBlob>,
+  'documents' : Array<DocumentRef>,
   'name' : string,
   'createdAt' : Time,
   'rating' : number,
@@ -63,51 +68,19 @@ export type Status = { 'active' : null } |
   { 'inactive' : null };
 export type Time = bigint;
 export interface UserProfile { 'name' : string, 'partnerId' : string }
-export type UserRole = { 'admin' : null } |
-  { 'user' : null } |
-  { 'guest' : null };
 export type VehicleType = { 'car' : null } |
   { 'van' : null } |
   { 'truck' : null } |
   { 'bike' : null };
-export interface _CaffeineStorageCreateCertificateResult {
-  'method' : string,
-  'blob_hash' : string,
-}
-export interface _CaffeineStorageRefillInformation {
-  'proposed_top_up_amount' : [] | [bigint],
-}
-export interface _CaffeineStorageRefillResult {
-  'success' : [] | [boolean],
-  'topped_up_amount' : [] | [bigint],
-}
 export interface _SERVICE {
-  '_caffeineStorageBlobIsLive' : ActorMethod<[Uint8Array], boolean>,
-  '_caffeineStorageBlobsToDelete' : ActorMethod<[], Array<Uint8Array>>,
-  '_caffeineStorageConfirmBlobDeletion' : ActorMethod<
-    [Array<Uint8Array>],
-    undefined
-  >,
-  '_caffeineStorageCreateCertificate' : ActorMethod<
-    [string],
-    _CaffeineStorageCreateCertificateResult
-  >,
-  '_caffeineStorageRefillCashier' : ActorMethod<
-    [[] | [_CaffeineStorageRefillInformation]],
-    _CaffeineStorageRefillResult
-  >,
-  '_caffeineStorageUpdateGatewayPrincipals' : ActorMethod<[], undefined>,
-  '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
   'addCancellation' : ActorMethod<[CancellationData], undefined>,
   'addEarnings' : ActorMethod<[EarningsData], undefined>,
   'addOrder' : ActorMethod<[OrderData], undefined>,
   'addPartner' : ActorMethod<[PartnerData], undefined>,
   'addReturn' : ActorMethod<[ReturnData], undefined>,
-  'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
   'getAllPartners' : ActorMethod<[], Array<PartnerData>>,
   'getAvailableOrders' : ActorMethod<[], Array<OrderData>>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
-  'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getCancellations' : ActorMethod<[string], Array<CancellationData>>,
   'getEarnings' : ActorMethod<[string], Array<EarningsData>>,
   'getOrder' : ActorMethod<[OrderDataIdentifier], OrderData>,
@@ -116,14 +89,15 @@ export interface _SERVICE {
   'getPartnerOrders' : ActorMethod<[string], Array<OrderData>>,
   'getReturns' : ActorMethod<[string], Array<ReturnData>>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
-  'isCallerAdmin' : ActorMethod<[], boolean>,
+  'grantAdmin' : ActorMethod<[Principal], undefined>,
+  'registerUser' : ActorMethod<[], undefined>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
   'updateOrderStatus' : ActorMethod<
     [OrderDataIdentifier, OrderStatus],
     undefined
   >,
   'updatePartnerDocuments' : ActorMethod<
-    [PartnerDataIdentifier, Array<ExternalBlob>],
+    [PartnerDataIdentifier, Array<DocumentRef>],
     undefined
   >,
 }

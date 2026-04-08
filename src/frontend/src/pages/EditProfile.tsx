@@ -24,6 +24,7 @@ import { ExternalBlob } from "../backend";
 import FeedbackModal from "../components/FeedbackModal";
 import LiveLocationBar from "../components/LiveLocationBar";
 import { useCallerProfile } from "../hooks/useQueries";
+import { getUserProfile, setUserProfile } from "../lib/userStore";
 
 const VEHICLE_TYPES = ["Bike", "Car", "Walking", "Cycle"];
 const GENDERS = ["Male", "Female", "Other"];
@@ -75,21 +76,33 @@ const INITIAL_DOCS: DocState[] = [
 export default function EditProfile() {
   const router = useRouter();
   const { data: profile } = useCallerProfile();
-  const [name, setName] = useState(profile?.name ?? "");
+  const stored = getUserProfile();
+  const [name, setName] = useState(stored.name ?? profile?.name ?? "");
   const [showFeedback, setShowFeedback] = useState(false);
-  const [gender, setGender] = useState("Male");
-  const [vehicleType, setVehicleType] = useState("Bike");
+  const [gender, setGender] = useState(stored.gender ?? "Male");
+  const [vehicleType, setVehicleType] = useState(
+    stored.vehicleType
+      ? stored.vehicleType.charAt(0).toUpperCase() + stored.vehicleType.slice(1)
+      : "Bike",
+  );
+  const [vehicleNumber, setVehicleNumber] = useState(
+    stored.vehicleNumber ?? "",
+  );
+  const [fuelType, setFuelType] = useState(stored.fuelType ?? "");
   const [houseNo, setHouseNo] = useState("");
   const [street, setStreet] = useState("");
   const [city, setCity] = useState("");
   const [district, setDistrict] = useState("");
   const [state, setState] = useState("");
-  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(
+    stored.profilePhoto ?? null,
+  );
   const [docs, setDocs] = useState<DocState[]>(INITIAL_DOCS);
   const photoRef = useRef<HTMLInputElement>(null);
   const fileRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   const needsDocs = vehicleType === "Bike" || vehicleType === "Car";
+  const needsVehicleDetails = vehicleType === "Bike" || vehicleType === "Car";
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -121,6 +134,13 @@ export default function EditProfile() {
   };
 
   const handleSave = () => {
+    setUserProfile({
+      name: name.trim() || undefined,
+      gender,
+      vehicleType: vehicleType.toLowerCase(),
+      vehicleNumber: vehicleNumber.trim() || undefined,
+      fuelType: fuelType || undefined,
+    });
     toast.success("Profile updated successfully!");
     router.navigate({ to: "/profile" });
   };
@@ -231,7 +251,10 @@ export default function EditProfile() {
                   key={v}
                   type="button"
                   data-ocid="editprofile.radio"
-                  onClick={() => setVehicleType(v)}
+                  onClick={() => {
+                    setVehicleType(v);
+                    setFuelType("");
+                  }}
                   className={`py-2 px-2 rounded-xl border text-xs font-medium transition-colors ${
                     vehicleType === v
                       ? "border-primary bg-primary/20 text-primary"
@@ -243,6 +266,51 @@ export default function EditProfile() {
               ))}
             </div>
           </div>
+
+          {/* Vehicle Number + Fuel Type — Bike or Car only */}
+          {needsVehicleDetails && (
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">
+                  Vehicle Number
+                </Label>
+                <Input
+                  data-ocid="editprofile.vehicle_number_input"
+                  placeholder="e.g. MH12AB1234"
+                  value={vehicleNumber}
+                  onChange={(e) =>
+                    setVehicleNumber(e.target.value.toUpperCase())
+                  }
+                  className="bg-muted border-border font-mono tracking-wider"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">
+                  Fuel Type
+                </Label>
+                <div className="flex gap-2">
+                  {(vehicleType === "Bike"
+                    ? ["Oil", "Electric"]
+                    : ["Petrol", "Diesel", "Electric"]
+                  ).map((ft) => (
+                    <button
+                      key={ft}
+                      type="button"
+                      data-ocid="editprofile.fuel_type_button"
+                      onClick={() => setFuelType(ft)}
+                      className={`flex-1 py-2.5 rounded-xl border text-sm font-semibold transition-colors ${
+                        fuelType === ft
+                          ? "border-primary bg-primary/20 text-primary"
+                          : "border-border bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {ft}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </motion.div>
 
         {/* Address */}
